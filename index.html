@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TRENDZ — E-Commerce Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  font-family: 'Outfit', sans-serif;
+  background: #1A1C1F;
+  color: #F3F1ED;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 0; opacity: 0.04;
+  background-image:
+    linear-gradient(135deg, #fff 25%, transparent 25%),
+    linear-gradient(225deg, #fff 25%, transparent 25%),
+    linear-gradient(45deg,  #fff 25%, transparent 25%),
+    linear-gradient(315deg, #fff 25%, transparent 25%);
+  background-size: 6px 6px;
+  background-position: 0 0, 3px 0, 3px -3px, 0px 3px;
+}
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #1A1C1F; }
+::-webkit-scrollbar-thumb { background: #444A52; border-radius: 2px; }
+.pulse-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #C65D2E;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity:1; transform:scale(1); }
+  50%      { opacity:.5; transform:scale(.75); }
+}
+.field-input {
+  background: #1A1C1F;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: .625rem;
+  padding: .65rem 1rem;
+  color: #F3F1ED;
+  font-size: .85rem;
+  font-family: 'Outfit', sans-serif;
+  width: 100%;
+  transition: border-color .2s, box-shadow .2s;
+}
+.field-input:focus {
+  outline: none;
+  border-color: rgba(198,93,46,.5);
+  box-shadow: 0 0 0 3px rgba(198,93,46,.1);
+}
+.field-input::placeholder { color: #555; }
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(14px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.fade-up { animation: fadeUp .45s cubic-bezier(.16,1,.3,1) both; }
+.d1 { animation-delay:.05s; } .d2 { animation-delay:.1s; }
+.d3 { animation-delay:.15s; } .d4 { animation-delay:.2s; }
+.d5 { animation-delay:.25s; }
+@keyframes shimmer {
+  0%  { background-position:-400px 0; }
+  100%{ background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg,#24272B 0%,#2E3237 50%,#24272B 100%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: .5rem;
+}
+@keyframes spin {
+  from { transform:rotate(0deg); } to { transform:rotate(360deg); }
+}
+.spin { animation: spin .8s linear infinite; }
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,.7);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1.5rem;
+}
+</style>
+</head>
+<body>
+<div id="root" style="position:relative;z-index:1;"></div>
+
+<script type="text/babel">
+
+// ─── Shared Components ────────────────────────────────────────────────────────
+
+function KPICard({ label, value, sub, trend, accent }) {
+  const [display, setDisplay] = React.useState(0);
+  const trendUp = trend >= 0;
+
+  React.useEffect(() => {
+    const raw = parseFloat(String(value).replace(/[^0-9.]/g, ''));
+    let start = 0;
+    const steps = 40;
+    const inc = raw / steps;
+    let i = 0;
+    const t = setInterval(() => {
+      i++;
+      start += inc;
+      setDisplay(Math.min(start, raw));
+      if (i >= steps) clearInterval(t);
+    }, 18);
+    return () => clearInterval(t);
+  }, [value]);
+
+  const fmt = (n) => {
+    const prefix = String(value).startsWith('$') ? '$' : '';
+    const suffix = String(value).endsWith('%') ? '%' : String(value).includes('k') ? 'k' : '';
+    const base = suffix === 'k' ? n / 1000 : n;
+    return prefix + (base >= 1000 && suffix !== 'k'
+      ? base.toLocaleString('en-US', { maximumFractionDigits: 0 })
+      : base.toFixed(suffix === '%' ? 1 : suffix === 'k' ? 1 : 0)) + suffix;
+  };
+
+  return (
+    <div style={{
+      background: '#24272B',
+      border: '1px solid rgba(255,255,255,0.07)',
+      borderRadius: '1rem',
+      padding: '1.25rem 1.5rem',
+      display: 'flex', flexDirection: 'column', gap: '0.5rem',
+      minWidth: 0, position: 'relative', overflow: 'hidden',
+    }}>
+      {accent && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, #C65D2E, transparent)' }} />}
+      <span style={{ fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#B8B2AA', fontWeight: 600 }}>{label}</span>
+      <span style={{ fontSize: '1.8rem', fontWeight: 700, color: '#F3F1ED', letterSpacing: '-0.03em', lineHeight: 1 }}>
+        {fmt(display)}
+      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+        <span style={{
+          fontSize: '0.72rem', fontWeight: 600, padding: '0.1rem 0.4rem',
+          borderRadius: '0.3rem',
+          background: trendUp ? 'rgba(198,93,46,0.15)' : 'rgba(255,255,255,0.06)',
+          color: trendUp ? '#E07A45' : '#888',
+        }}>
+          {trendUp ? '+' : ''}{trend}%
+        </span>
+        <span style={{ fontSize: '0.7rem', color: '#666' }}>{sub}</span>
+      </div>
+    </div>
+  );
+}
+
+function SparkLine({ data, color = '#C65D2E', height = 32, width = 80 }) {
+  if (!data || data.length < 2) return null;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * width;
+    const y = height - ((v - min) / range) * height;
+    return `${x},${y}`;
+  }).join(' ');
+  const area = `M0,${height} L${pts.split(' ').map(p => p).join(' L')} L${width},${height} Z`;
+  return (
+    <svg width={width} height={height} style={{ overflow: 'visible' }}>
+      <defs>
+        <linearGradient id={`sg-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#sg-${color.replace('#','')})`} />
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function RevenueChart({ data }) {
+  const W = 600, H = 180;
+  const pad = { top: 16, right: 12, bottom: 32, left: 44 };
+  const iW = W - pad.left - pad.right;
+  const iH = H - pad.top - pad.bottom;
+
+  const maxV = Math.max(...data.map(d => d.v));
+  const pts = data.map((d, i) => {
+    const x = pad.left + (i / (data.length - 1)) * iW;
+    const y = pad.top + iH - (d.v / maxV) * iH;
+    return { x, y, ...d };
+  });
+
+  const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+  const areaPath = `M${pts[0].x},${pad.top + iH} ${pts.map(p => `L${p.x},${p.y}`).join(' ')} L${pts[pts.length-1].x},${pad.top+iH} Z`;
+
+  const [hover, setHover] = React.useState(null);
+
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map(t => ({
+    v: t * maxV,
+    y: pad.top + iH - t * iH,
+  }));
+
+  return (
+    <div style={{ position: 'relative', width: '100%' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
+        <defs>
+          <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#C65D2E" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#C65D2E" stopOpacity="0" />
+          </linearGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+        {yTicks.map((t, i) => (
+          <g key={i}>
+            <line x1={pad.left} y1={t.y} x2={W - pad.right} y2={t.y} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+            <text x={pad.left - 6} y={t.y + 4} textAnchor="end" fontSize="9" fill="#666" fontFamily="Outfit,sans-serif">
+              ${(t.v / 1000).toFixed(0)}k
+            </text>
+          </g>
+        ))}
+        {pts.filter((_, i) => i % 3 === 0 || i === pts.length - 1).map((p, i) => (
+          <text key={i} x={p.x} y={H - 4} textAnchor="middle" fontSize="9" fill="#555" fontFamily="Outfit,sans-serif">{p.label}</text>
+        ))}
+        <path d={areaPath} fill="url(#revGrad)" />
+        <path d={linePath} fill="none" stroke="#C65D2E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" filter="url(#glow)" />
+        {pts.map((p, i) => (
+          <g key={i}
+            onMouseEnter={() => setHover(p)}
+            onMouseLeave={() => setHover(null)}
+            style={{ cursor: 'default' }}
+          >
+            <circle cx={p.x} cy={p.y} r="12" fill="transparent" />
+            {hover && hover === p && (
+              <g>
+                <circle cx={p.x} cy={p.y} r="4" fill="#C65D2E" />
+                <circle cx={p.x} cy={p.y} r="7" fill="none" stroke="#C65D2E" strokeOpacity="0.4" strokeWidth="1.5" />
+                <rect x={p.x - 34} y={p.y - 28} width="68" height="20" rx="4" fill="#2E3237" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
+                <text x={p.x} y={p.y - 14} textAnchor="middle" fontSize="10" fill="#F3F1ED" fontFamily="Outfit,sans-serif" fontWeight="600">
+                  ${p.v.toLocaleString()}
+                </text>
+              </g>
+            )}
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function OrderFunnel({ stages }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
+      {stages.map((s, i) => {
+        const pct = (s.v / stages[0].v) * 100;
+        return (
+          <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.72rem', color: '#B8B2AA', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500 }}>{s.label}</span>
+              <span style={{ fontSize: '0.8rem', color: '#F3F1ED', fontWeight: 600 }}>{s.v.toLocaleString()}</span>
+            </div>
+            <div style={{ height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '99px', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: '99px',
+                width: `${pct}%`,
+                background: i === 0 ? '#C65D2E' : `rgba(198,93,46,${1 - i * 0.18})`,
+                transition: 'width 0.8s cubic-bezier(0.16,1,0.3,1)',
+              }} />
+            </div>
+            {i < stages.length - 1 && (
+              <div style={{ textAlign: 'right', fontSize: '0.65rem', color: '#555' }}>
+                {((stages[i+1].v / s.v) * 100).toFixed(1)}% proceed
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function LiveTicker({ tags }) {
+  const [offset, setOffset] = React.useState(0);
+  const doubled = [...tags, ...tags];
+
+  React.useEffect(() => {
+    const t = setInterval(() => {
+      setOffset(o => (o + 0.4) % (tags.length * 140));
+    }, 16);
+    return () => clearInterval(t);
+  }, [tags.length]);
+
+  return (
+    <div style={{ overflow: 'hidden', width: '100%', position: 'relative' }}>
+      <div style={{
+        display: 'flex', gap: '0.5rem', alignItems: 'center',
+        transform: `translateX(-${offset}px)`,
+        whiteSpace: 'nowrap',
+        willChange: 'transform',
+      }}>
+        {doubled.map((tag, i) => (
+          <span key={i} style={{
+            fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.04em',
+            padding: '0.2rem 0.6rem',
+            background: 'rgba(198,93,46,0.12)',
+            border: '1px solid rgba(198,93,46,0.25)',
+            borderRadius: '0.4rem',
+            color: '#E07A45',
+            flexShrink: 0,
+          }}>#{tag}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TrendingProducts({ products }) {
+  const [liveData, setLiveData] = React.useState(products);
+  const [pulse, setPulse] = React.useState(null);
+
+  React.useEffect(() => { setLiveData(products); }, [products]);
+
+  React.useEffect(() => {
+    const t = setInterval(() => {
+      setLiveData(prev => prev.map(p => ({
+        ...p,
+        views: p.views + Math.floor(Math.random() * 12000 + 3000),
+        mentions: p.mentions + Math.floor(Math.random() * 8 + 1),
+        spark: [...p.spark.slice(1), p.spark[p.spark.length - 1] + (Math.random() - 0.3) * 5000],
+      })));
+      setPulse(Math.floor(Math.random() * products.length));
+      setTimeout(() => setPulse(null), 600);
+    }, 2800);
+    return () => clearInterval(t);
+  }, [products.length]);
+
+  const fmtViews = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : (n / 1000).toFixed(0) + 'K';
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '0.75rem' }}>
+      {liveData.map((p, i) => (
+        <div key={p.id} style={{
+          background: '#2E3237',
+          border: `1px solid ${pulse === i ? 'rgba(198,93,46,0.5)' : 'rgba(255,255,255,0.07)'}`,
+          borderRadius: '0.875rem',
+          padding: '1rem',
+          display: 'flex', flexDirection: 'column', gap: '0.6rem',
+          transition: 'border-color 0.3s ease',
+          position: 'relative', overflow: 'hidden',
+        }}>
+          {i < 3 && (
+            <div style={{
+              position: 'absolute', top: '0.6rem', right: '0.6rem',
+              fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em',
+              padding: '0.15rem 0.4rem', borderRadius: '0.25rem',
+              background: i === 0 ? '#C65D2E' : 'rgba(198,93,46,0.2)',
+              color: i === 0 ? '#F7F1EB' : '#E07A45',
+            }}>#{i + 1} TRENDING</div>
+          )}
+          <div style={{
+            width: '100%', height: '90px',
+            borderRadius: '0.5rem',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: `1px solid ${p.color}18`,
+            backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 4px, ${p.color}06 4px, ${p.color}06 5px)`,
+            background: `linear-gradient(135deg, ${p.color}22, ${p.color}08)`,
+          }}>
+            <span style={{ color: '#666', fontSize: '0.62rem' }}>product img</span>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#F3F1ED', lineHeight: 1.3 }}>{p.name}</div>
+            <div style={{ fontSize: '0.7rem', color: '#888', marginTop: '0.15rem' }}>{p.category}</div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+              <span style={{ fontSize: '0.65rem', color: '#666', textTransform: 'uppercase', letterSpacing: '0.08em' }}>TikTok Views</span>
+              <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#F3F1ED', letterSpacing: '-0.02em' }}>
+                {fmtViews(p.views)}
+              </span>
+            </div>
+            <SparkLine data={p.spark} width={60} height={28} color="#C65D2E" />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.6rem' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '0.65rem', color: '#666' }}>Mentions</div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#E07A45' }}>{p.mentions.toLocaleString()}</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '0.65rem', color: '#666' }}>Viral Score</div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#F3F1ED' }}>{p.viralScore}</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '0.65rem', color: '#666' }}>Conv. Lift</div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#E07A45' }}>+{p.convLift}%</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+            {p.tags.map((tag, ti) => (
+              <span key={ti} style={{ fontSize: '0.6rem', color: '#888', background: 'rgba(255,255,255,0.04)', padding: '0.1rem 0.35rem', borderRadius: '0.25rem' }}>
+                #{tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TopProducts({ rows }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '0.5rem', padding: '0 0 0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        {['Product', 'Revenue', 'Units', 'Trend'].map(h => (
+          <span key={h} style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#555', fontWeight: 600 }}>{h}</span>
+        ))}
+      </div>
+      {rows.map((r, i) => (
+        <div key={i} style={{
+          display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '0.5rem',
+          padding: '0.6rem 0', borderBottom: '1px solid rgba(255,255,255,0.04)',
+          alignItems: 'center',
+        }}>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#F3F1ED', fontWeight: 500 }}>{r.name}</div>
+            <div style={{ fontSize: '0.65rem', color: '#666' }}>{r.sku}</div>
+          </div>
+          <span style={{ fontSize: '0.8rem', color: '#F3F1ED', fontWeight: 600 }}>${r.rev.toLocaleString()}</span>
+          <span style={{ fontSize: '0.8rem', color: '#B8B2AA' }}>{r.units}</span>
+          <span style={{ fontSize: '0.72rem', fontWeight: 600, color: r.trend > 0 ? '#E07A45' : '#888' }}>
+            {r.trend > 0 ? '+' : ''}{r.trend}%
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TrafficSources({ sources }) {
+  const total = sources.reduce((s, x) => s + x.v, 0);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      {sources.map((s, i) => {
+        const pct = (s.v / total * 100).toFixed(1);
+        return (
+          <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '0.75rem', color: '#B8B2AA', fontWeight: 500 }}>{s.label}</span>
+              <span style={{ fontSize: '0.75rem', color: '#F3F1ED', fontWeight: 600 }}>{pct}%</span>
+            </div>
+            <div style={{ height: '5px', background: 'rgba(255,255,255,0.05)', borderRadius: '99px', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', width: `${pct}%`,
+                background: s.label === 'TikTok' ? '#C65D2E' : `rgba(198,93,46,${0.5 - i * 0.08})`,
+                borderRadius: '99px',
+                transition: 'width 1s cubic-bezier(0.16,1,0.3,1)',
+              }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Sample Data ──────────────────────────────────────────────────────────────
+
+const REVENUE_DATA = [
+  { label: 'Apr 1',  v: 41200 }, { label: 'Apr 4',  v: 38700 }, { label: 'Apr 7',  v: 52300 },
+  { label: 'Apr 10', v: 61800 }, { label: 'Apr 13', v: 57400 }, { label: 'Apr 16', v: 74200 },
+  { label: 'Apr 19', v: 68900 }, { label: 'Apr 22', v: 83100 }, { label: 'Apr 25', v: 91600 },
+  { label: 'Apr 28', v: 87300 }, { label: 'May 1',  v: 102400 },
+];
+
+const FUNNEL_STAGES = [
+  { label: 'Visitors',    v: 148320 },
+  { label: 'Product Views', v: 89014 },
+  { label: 'Add to Cart',   v: 31206 },
+  { label: 'Checkout',      v: 14882 },
+  { label: 'Purchased',     v: 9741  },
+];
+
+const TRENDING_PRODUCTS = [
+  { id: 1, name: 'Stanley Quencher 40oz', category: 'Drinkware', color: '#E07A45',
+    views: 4820000, mentions: 18420, viralScore: 98, convLift: 34,
+    spark: [32,38,35,51,63,71,68,84,92,88,103],
+    tags: ['drinkware', 'viral', 'hydration'] },
+  { id: 2, name: 'Laneige Lip Mask', category: 'Beauty', color: '#C65D2E',
+    views: 3140000, mentions: 12880, viralScore: 94, convLift: 28,
+    spark: [18,22,19,31,40,38,52,61,58,72,80],
+    tags: ['skincare', 'beauty', 'dupes'] },
+  { id: 3, name: 'Dyson Airwrap', category: 'Hair Tools', color: '#9C4B22',
+    views: 2690000, mentions: 9310, viralScore: 91, convLift: 22,
+    spark: [45,42,51,48,60,58,65,71,68,80,76],
+    tags: ['hairtools', 'dyson', 'hairstyle'] },
+  { id: 4, name: 'Hailey Bieber Nails', category: 'Nail & Beauty', color: '#B05A30',
+    views: 1980000, mentions: 7640, viralScore: 87, convLift: 19,
+    spark: [10,14,12,22,28,25,38,42,40,51,57],
+    tags: ['nails', 'glazed', 'aesthetic'] },
+  { id: 5, name: 'Cloud Slippers', category: 'Footwear', color: '#7A3C1E',
+    views: 1540000, mentions: 5920, viralScore: 83, convLift: 16,
+    spark: [8,11,9,18,21,19,28,33,31,40,44],
+    tags: ['fashion', 'cozy', 'slippers'] },
+  { id: 6, name: 'Viral Blush Trio', category: 'Makeup', color: '#D4693A',
+    views: 1120000, mentions: 4310, viralScore: 79, convLift: 14,
+    spark: [5,8,7,12,16,14,22,27,25,32,36],
+    tags: ['makeup', 'blush', 'glow'] },
+];
+
+const TOP_PRODUCTS_ROWS = [
+  { name: 'Stanley Quencher 40oz', sku: 'STN-40-CREAM',  rev: 284600, units: '4.2k', trend: 38 },
+  { name: 'Laneige Lip Mask',      sku: 'LNG-LM-BERRY',  rev: 198400, units: '3.1k', trend: 24 },
+  { name: 'Dyson Airwrap 2024',    sku: 'DYS-AW-NKL',    rev: 176200, units: '840',  trend: 17 },
+  { name: 'Cloud Slide Sandal',    sku: 'CLD-SLD-WHT',   rev: 142800, units: '2.8k', trend: 12 },
+  { name: 'Glossier You Perfume',  sku: 'GLS-YOU-35ML',  rev: 118300, units: '1.9k', trend: 9  },
+  { name: 'Rhode Peptide Lip',     sku: 'RHD-PLT-GLSS',  rev:  94700, units: '2.4k', trend: -3 },
+];
+
+const TRAFFIC_SOURCES = [
+  { label: 'TikTok',      v: 58400 },
+  { label: 'Instagram',   v: 34100 },
+  { label: 'Organic Search', v: 21600 },
+  { label: 'Direct',      v: 18200 },
+  { label: 'YouTube',     v: 11900 },
+  { label: 'Pinterest',   v: 4100  },
+];
+
+const TICKER_TAGS = [
+  'glazeddonutskin','quietluxury','oldmoneystyle','coquette','cleanbeauty',
+  'thatgirl','strawberrymakeup','mobilitydrills','grwm','haul','ootd',
+  'skincarecheck','viralnails','aestheticroom','healthylifestyle',
+];
+
+const KPI_DATA = [
+  { label: 'Total Revenue',    value: '$1.02M', sub: 'vs last 30d', trend: 18.4, accent: true  },
+  { label: 'Orders',           value: '9741',   sub: 'vs last 30d', trend: 12.1, accent: false },
+  { label: 'Avg Order Value',  value: '$104.7', sub: 'vs last 30d', trend: 5.8,  accent: false },
+  { label: 'Conversion Rate',  value: '6.57%',  sub: 'vs last 30d', trend: 0.9,  accent: false },
+  { label: 'TikTok-Driven Rev',value: '$381k',  sub: 'vs last 30d', trend: 41.2, accent: false },
+  { label: 'Repeat Buyers',    value: '38.4%',  sub: 'vs last 30d', trend: 3.2,  accent: false },
+];
+
+// ─── Layout Helpers ───────────────────────────────────────────────────────────
+
+function Card({ title, badge, children, style = {} }) {
+  return (
+    <div style={{
+      background: '#24272B',
+      border: '1px solid rgba(255,255,255,0.07)',
+      borderRadius: '1rem',
+      padding: '1.25rem 1.5rem',
+      display: 'flex', flexDirection: 'column', gap: '1rem',
+      minWidth: 0,
+      ...style,
+    }}>
+      {title && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.78rem', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#B8B2AA' }}>{title}</span>
+          {badge && (
+            <span style={{
+              fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em',
+              padding: '0.15rem 0.5rem', borderRadius: '0.3rem',
+              background: 'rgba(198,93,46,0.15)', color: '#E07A45',
+              border: '1px solid rgba(198,93,46,0.2)',
+            }}>{badge}</span>
+          )}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+// ─── Nav ──────────────────────────────────────────────────────────────────────
+
+function Nav({ activeTab, setActiveTab }) {
+  const tabs = ['Overview', 'Trending', 'Products', 'Analytics'];
+  return (
+    <header style={{
+      position: 'sticky', top: 0, zIndex: 100,
+      background: 'rgba(26,28,31,0.85)',
+      backdropFilter: 'blur(12px)',
+      borderBottom: '1px solid rgba(255,255,255,0.06)',
+      padding: '0 2rem',
+      display: 'flex', alignItems: 'center', gap: '2.5rem',
+      height: '56px',
+    }}>
+      {/* Logo */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+        <div style={{
+          width: '26px', height: '26px', borderRadius: '6px',
+          background: 'linear-gradient(135deg, #C65D2E, #8C3D1A)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <polyline points="1,11 5,6 8,9 13,3" stroke="#F3F1ED" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="13" cy="3" r="1.5" fill="#F3F1ED"/>
+          </svg>
+        </div>
+        <span style={{ fontWeight: 800, fontSize: '0.95rem', letterSpacing: '-0.02em', color: '#F3F1ED' }}>TRENDZ</span>
+      </div>
+
+      {/* Tabs */}
+      <nav style={{ display: 'flex', gap: '0.25rem', flex: 1 }}>
+        {tabs.map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: '0.35rem 0.75rem', borderRadius: '0.5rem',
+            fontSize: '0.8rem', fontWeight: activeTab === tab ? 600 : 400,
+            color: activeTab === tab ? '#F3F1ED' : '#666',
+            fontFamily: 'Outfit, sans-serif',
+            background: activeTab === tab ? 'rgba(255,255,255,0.06)' : 'transparent',
+            transition: 'all 0.15s',
+          }}>{tab}</button>
+        ))}
+      </nav>
+
+      {/* Live indicator */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+        <div className="pulse-dot" />
+        <span style={{ fontSize: '0.7rem', color: '#B8B2AA', fontWeight: 500 }}>LIVE</span>
+      </div>
+    </header>
+  );
+}
+
+// ─── Overview Tab ─────────────────────────────────────────────────────────────
+
+function OverviewTab() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Ticker */}
+      <Card badge="TRENDING NOW">
+        <LiveTicker tags={TICKER_TAGS} />
+      </Card>
+
+      {/* KPIs */}
+      <div className="fade-up d1" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem' }}>
+        {KPI_DATA.map((k, i) => <KPICard key={i} {...k} />)}
+      </div>
+
+      {/* Revenue chart + funnel */}
+      <div className="fade-up d2" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
+        <Card title="Revenue" badge="30D">
+          <RevenueChart data={REVENUE_DATA} />
+        </Card>
+        <Card title="Purchase Funnel">
+          <OrderFunnel stages={FUNNEL_STAGES} />
+        </Card>
+      </div>
+
+      {/* Top products + traffic */}
+      <div className="fade-up d3" style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '1rem' }}>
+        <Card title="Top Products by Revenue">
+          <TopProducts rows={TOP_PRODUCTS_ROWS} />
+        </Card>
+        <Card title="Traffic Sources">
+          <TrafficSources sources={TRAFFIC_SOURCES} />
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ─── Trending Tab ─────────────────────────────────────────────────────────────
+
+function TrendingTab() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <Card title="TikTok-Driven Products" badge="LIVE">
+        <TrendingProducts products={TRENDING_PRODUCTS} />
+      </Card>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+        <Card title="Traffic Sources">
+          <TrafficSources sources={TRAFFIC_SOURCES} />
+        </Card>
+        <Card title="Trending Hashtags" badge="LIVE">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <LiveTicker tags={TICKER_TAGS.slice(0, 8)} />
+            <LiveTicker tags={TICKER_TAGS.slice(8)} />
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ─── Products Tab ─────────────────────────────────────────────────────────────
+
+function ProductsTab() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <Card title="All Products">
+        <TopProducts rows={TOP_PRODUCTS_ROWS} />
+      </Card>
+      <Card title="Purchase Funnel">
+        <OrderFunnel stages={FUNNEL_STAGES} />
+      </Card>
+    </div>
+  );
+}
+
+// ─── Analytics Tab ────────────────────────────────────────────────────────────
+
+function AnalyticsTab() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem' }}>
+        {KPI_DATA.map((k, i) => <KPICard key={i} {...k} />)}
+      </div>
+      <Card title="Revenue Over Time" badge="30D">
+        <RevenueChart data={REVENUE_DATA} />
+      </Card>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+        <Card title="Traffic Sources">
+          <TrafficSources sources={TRAFFIC_SOURCES} />
+        </Card>
+        <Card title="Purchase Funnel">
+          <OrderFunnel stages={FUNNEL_STAGES} />
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ─── App ──────────────────────────────────────────────────────────────────────
+
+function App() {
+  const [activeTab, setActiveTab] = React.useState('Overview');
+
+  const tabs = { Overview: OverviewTab, Trending: TrendingTab, Products: ProductsTab, Analytics: AnalyticsTab };
+  const ActiveView = tabs[activeTab] || OverviewTab;
+
+  return (
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
+      <Nav activeTab={activeTab} setActiveTab={setActiveTab} />
+      <main style={{ flex: 1, padding: '1.5rem 2rem 3rem', maxWidth: '1400px', width: '100%', margin: '0 auto' }}>
+        <ActiveView />
+      </main>
+    </div>
+  );
+}
+
+// ─── Mount ────────────────────────────────────────────────────────────────────
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+
+</script>
+</body>
+</html>
