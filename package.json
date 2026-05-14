@@ -4,6 +4,7 @@
   "description": "TRENDZ e-commerce intelligence backend — proxies Pinterest, Google Trends, Amazon",
   "main": "server.js",
   "scripts": {
+    "build": "cd apps/web && npm install && npm run build",
     "start": "node server.js",
     "dev": "node --watch server.js"
   },

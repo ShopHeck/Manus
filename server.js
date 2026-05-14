@@ -19,6 +19,8 @@ require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
 const https   = require('https');
+const path    = require('path');
+const fs      = require('fs');
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -49,10 +51,6 @@ function httpsGet(url, headers = {}) {
 
 // ─── Root + Health ────────────────────────────────────────────────────────────
 
-app.get('/', (_req, res) => {
-  res.json({ name: 'TRENDZ backend', status: 'ok' });
-});
-
 app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
@@ -65,12 +63,6 @@ app.get('/api/health', (_req, res) => {
 });
 
 // ─── Pinterest Trends ─────────────────────────────────────────────────────────
-//
-// Docs: https://developers.pinterest.com/docs/api-features/trends/
-// Auth: long-lived access token (Pinterest OAuth2 → exchange code → access token)
-//       or Business Access Token from https://developers.pinterest.com/apps/
-//
-// Returns top trending keywords for US in the last 30 days.
 
 app.get('/api/pinterest-trends', async (req, res) => {
   const token = process.env.PINTEREST_ACCESS_TOKEN;
@@ -90,7 +82,6 @@ app.get('/api/pinterest-trends', async (req, res) => {
       return res.status(result.status).json({ error: 'Pinterest API error', detail: result.body });
     }
 
-    // Normalize to {keyword, pct_growth, time_series[]}
     const trends = (result.body.trends || []).map(t => ({
       keyword:    t.keyword,
       pctGrowth:  t.pct_growth_wow,
@@ -104,21 +95,13 @@ app.get('/api/pinterest-trends', async (req, res) => {
 });
 
 // ─── Google Trends ────────────────────────────────────────────────────────────
-//
-// Uses the unofficial Google Trends daily/realtime endpoints.
-// No API key required but rate-limited. For production use pytrends or
-// the official Trends API (alpha access via application).
-//
-// Returns today's trending searches + interest data for ecommerce keywords.
 
 app.get('/api/google-trends', async (req, res) => {
   try {
     const geo = req.query.geo || 'US';
-    // Daily trending searches (JSON feed — no auth required)
     const url = `https://trends.google.com/trends/api/dailytrends?hl=en-US&tz=-300&geo=${geo}&ns=15`;
     const result = await httpsGet(url);
 
-    // Google prepends ")]}',\n" to the response to prevent JSON hijacking
     const raw = typeof result.body === 'string'
       ? result.body.replace(/^\)\]\}',\n/, '')
       : JSON.stringify(result.body);
@@ -147,14 +130,6 @@ app.get('/api/google-trends', async (req, res) => {
 });
 
 // ─── Amazon Movers & Shakers ──────────────────────────────────────────────────
-//
-// Scrapes the public Amazon Movers & Shakers page (updated hourly).
-// No API key needed. Uses a simple regex extraction to avoid a cheerio dependency.
-//
-// Supported categories: beauty, health, toys-and-games, kitchen, clothing,
-//   electronics, sports, home-garden, tools, grocery
-//
-// Returns top 20 movers with name, rank change, and URL.
 
 app.get('/api/amazon-movers', async (req, res) => {
   const category = req.query.category || 'beauty';
@@ -179,13 +154,8 @@ app.get('/api/amazon-movers', async (req, res) => {
     }
 
     const html = result.body;
-
-    // Extract product names — Amazon's class names rotate but item titles are consistent
     const nameMatches   = [...html.matchAll(/class="[^"]*zg-bdg-text[^"]*"[^>]*>\s*([^<]+)/g)].map(m => m[1].trim());
-    const rankMatches   = [...html.matchAll(/(\d+),(\d+)%[^"]*movers/gi)];
     const asinMatches   = [...html.matchAll(/\/dp\/([A-Z0-9]{10})/g)].map(m => m[1]);
-
-    // Fallback: extract via aria-label on product links
     const titleFallback = [...html.matchAll(/aria-label="([^"]{10,80})"/g)].map(m => m[1]);
     const names = nameMatches.length > 0 ? nameMatches : titleFallback.slice(0, 20);
 
@@ -202,7 +172,7 @@ app.get('/api/amazon-movers', async (req, res) => {
   }
 });
 
-// ─── Reddit Trends (proxy — avoids CORS on some deployments) ─────────────────
+// ─── Reddit Trends (proxy) ────────────────────────────────────────────────────
 
 app.get('/api/reddit-trends', async (req, res) => {
   const sub   = req.query.sub   || 'TikTokMadeMeBuyIt';
@@ -215,6 +185,20 @@ app.get('/api/reddit-trends', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ─── Static frontend ──────────────────────────────────────────────────────────
+// Serve the Vite build output when it exists (Railway production).
+// In local dev the Vite dev server runs separately on :5173.
+
+const DIST = path.join(__dirname, 'apps', 'web', 'dist');
+if (fs.existsSync(DIST)) {
+  app.use(express.static(DIST));
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(DIST, 'index.html'));
+    }
+  });
+}
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
