@@ -47,7 +47,11 @@ function httpsGet(url, headers = {}) {
   });
 }
 
-// ─── Health ───────────────────────────────────────────────────────────────────
+// ─── Root + Health ────────────────────────────────────────────────────────────
+
+app.get('/', (_req, res) => {
+  res.json({ name: 'TRENDZ backend', status: 'ok' });
+});
 
 app.get('/api/health', (_req, res) => {
   res.json({
