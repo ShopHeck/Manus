@@ -19,6 +19,8 @@ require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
 const https   = require('https');
+const path    = require('path');
+const fs      = require('fs');
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -215,6 +217,21 @@ app.get('/api/reddit-trends', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ─── Static frontend ──────────────────────────────────────────────────────────
+// Serve the Vite build output when it exists (production / Railway deployment).
+// In local dev the Vite dev server runs separately on :5173.
+
+const DIST = path.join(__dirname, '..', 'web', 'dist');
+if (fs.existsSync(DIST)) {
+  app.use(express.static(DIST));
+  // SPA fallback — let React Router handle all non-API paths
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(DIST, 'index.html'));
+    }
+  });
+}
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
