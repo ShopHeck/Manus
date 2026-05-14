@@ -1,0 +1,71 @@
+.root { min-height: 100vh; max-width: 560px; }
+
+.title {
+  font-size: var(--text-h2);
+  font-weight: var(--weight-bold);
+  color: var(--text-1);
+}
+
+.subtitle {
+  font-size: var(--text-body);
+  color: var(--text-3);
+  margin-top: 4px;
+  margin-bottom: var(--space-6);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sectionTitle {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-1);
+}
+
+.sectionDesc {
+  font-size: var(--text-body);
+  color: var(--text-3);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  color: var(--text-2);
+}
+
+.fieldHint {
+  font-size: var(--text-caption);
+  color: var(--text-4);
+}
+
+.input {
+  height: 38px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  color: var(--text-1);
+  font-size: var(--text-body);
+  padding: 0 var(--space-3);
+  outline: none;
+  transition: border-color var(--duration-fast);
+  font-family: var(--font-sans);
+  width: 100%;
+}
+
+.input::placeholder { color: var(--text-4); }
+.input:focus { border-color: var(--accent); }

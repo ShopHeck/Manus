@@ -40,6 +40,7 @@ body::before {
   background: #C65D2E;
   animation: pulse 2s ease-in-out infinite;
 }
+.pulse-dot.green { background: #4CAF50; }
 @keyframes pulse {
   0%,100% { opacity:1; transform:scale(1); }
   50%      { opacity:.5; transform:scale(.75); }
@@ -90,12 +91,185 @@ body::before {
   display: flex; align-items: center; justify-content: center;
   padding: 1.5rem;
 }
+.icon-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.55rem;
+  color: #888;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-family: 'Outfit', sans-serif;
+  transition: background 0.15s, color 0.15s;
+  display: flex; align-items: center;
+}
+.icon-btn:hover { background: rgba(255,255,255,0.09); color: #F3F1ED; }
+.source-chip {
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.08em;
+  padding: 0.12rem 0.45rem; border-radius: 0.3rem;
+  border: 1px solid;
+}
+.source-chip.live {
+  background: rgba(76,175,80,0.12); color: #66BB6A;
+  border-color: rgba(76,175,80,0.25);
+}
+.source-chip.sample {
+  background: rgba(255,255,255,0.05); color: #666;
+  border-color: rgba(255,255,255,0.1);
+}
+.test-btn {
+  background: rgba(198,93,46,0.12);
+  border: 1px solid rgba(198,93,46,0.25);
+  border-radius: 0.5rem;
+  padding: 0 0.75rem; height: 38px;
+  color: #E07A45; font-size: 0.72rem; font-weight: 600;
+  cursor: pointer; font-family: 'Outfit', sans-serif;
+  white-space: nowrap; flex-shrink: 0;
+  transition: background 0.15s;
+}
+.test-btn:hover { background: rgba(198,93,46,0.2); }
+.test-btn:disabled { opacity: 0.45; cursor: default; }
 </style>
 </head>
 <body>
 <div id="root" style="position:relative;z-index:1;"></div>
 
 <script type="text/babel">
+
+// ─── Local Storage Helpers ────────────────────────────────────────────────────
+
+const STORAGE = {
+  get: (key) => localStorage.getItem('trendz_' + key) || '',
+  set: (key, val) => localStorage.setItem('trendz_' + key, val),
+};
+
+// ─── Data Fetchers ────────────────────────────────────────────────────────────
+
+const PRODUCT_COLORS = ['#C65D2E','#E07A45','#A0522D','#B8621E','#D4693A','#8C3D1A'];
+
+function generateSpark(base, points = 11) {
+  return Array.from({length: points}, (_, i) =>
+    base * (0.4 + (i / points) * 0.6 + (Math.random() - 0.3) * 0.12)
+  );
+}
+
+function guessCategory(title) {
+  const lower = title.toLowerCase();
+  const map = [
+    [/skin|serum|moistur|cleanser|toner|spf|sunscreen|retinol/, 'Skincare'],
+    [/makeup|mascara|blush|concealer|lipstick|lip|foundation|eyeshadow/, 'Makeup'],
+    [/hair|shampoo|conditioner|scalp|growth|dyson/, 'Hair Care'],
+    [/stanley|water.bottle|hydrat|tumbler|cup/, 'Drinkware'],
+    [/shoe|sneaker|sandal|boot|slipper/, 'Footwear'],
+    [/dress|shirt|pants|jeans|outfit|top|skirt/, 'Fashion'],
+    [/supplement|vitamin|protein|collagen|probiotic/, 'Wellness'],
+    [/kitchen|cook|pan|pot|air.fry|blender/, 'Kitchen'],
+    [/perfume|fragrance|cologne/, 'Fragrance'],
+  ];
+  for (const [re, cat] of map) if (re.test(lower)) return cat;
+  return 'Trending';
+}
+
+function extractHashtags(title) {
+  const stop = new Set(['this','that','with','from','have','been','they','their',
+    'when','what','some','more','just','like','also','about','because','really',
+    'bought','tiktok','made','after','seeing','tried']);
+  return title.toLowerCase().split(/\s+/)
+    .map(w => w.replace(/[^a-z]/g, ''))
+    .filter(w => w.length > 4 && !stop.has(w))
+    .slice(0, 3);
+}
+
+function cleanTitle(t) {
+  return t
+    .replace(/^(i\s+)?bought\s+/i, '')
+    .replace(/\s+(because|after seeing|from|thanks to)\s+(of\s+)?tiktok.*/i, '')
+    .replace(/^tiktok\s+made\s+me\s+buy\s+/i, '')
+    .slice(0, 50).trim();
+}
+
+async function fetchRedditProducts() {
+  const subs = ['TikTokMadeMeBuyIt','femalefashionadvice','SkincareAddiction'];
+  const results = await Promise.allSettled(
+    subs.map(s =>
+      fetch(`https://www.reddit.com/r/${s}/top.json?t=week&limit=12&raw_json=1`)
+        .then(r => r.json())
+    )
+  );
+  const posts = results
+    .filter(r => r.status === 'fulfilled')
+    .flatMap(r => r.value.data?.children?.map(c => c.data) || [])
+    .filter(p => p.score > 150 && !p.stickied);
+
+  posts.sort((a, b) => b.score - a.score);
+  return posts.slice(0, 6).map((p, i) => ({
+    id: p.id,
+    name: cleanTitle(p.title),
+    category: guessCategory(p.title),
+    color: PRODUCT_COLORS[i % PRODUCT_COLORS.length],
+    views: p.score * 850 + p.num_comments * 300,
+    mentions: p.num_comments,
+    viralScore: Math.min(99, Math.round(Math.log10(p.score + 10) * 29)),
+    convLift: Math.min(49, Math.round(Math.sqrt(p.score) / 4 + 5)),
+    spark: generateSpark(p.score * 800, 11),
+    tags: extractHashtags(p.title),
+    sourceUrl: `https://reddit.com${p.permalink}`,
+  }));
+}
+
+async function fetchRedditHashtags() {
+  const res = await fetch(
+    'https://www.reddit.com/r/TikTokMadeMeBuyIt/top.json?t=week&limit=50&raw_json=1'
+  );
+  const json = await res.json();
+  const freq = {};
+  json.data.children.forEach(c => {
+    extractHashtags(c.data.title).forEach(w => { freq[w] = (freq[w] || 0) + 1; });
+  });
+  return Object.entries(freq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 20)
+    .map(([w]) => w)
+    .filter(Boolean);
+}
+
+async function fetchApifyTikTok(apiKey) {
+  if (!apiKey) return null;
+  const res = await fetch(
+    `https://api.apify.com/v2/acts/clockworks~tiktok-hashtag-scraper/run-sync-get-dataset-items?token=${apiKey}&timeout=60`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        hashtags: ['viral','trending','grwm','haul','thatgirl'],
+        resultsPerPage: 20,
+      }),
+    }
+  );
+  if (!res.ok) return null;
+  const items = await res.json();
+  if (!Array.isArray(items) || items.length === 0) return null;
+  return items.slice(0, 6).map((item, i) => ({
+    id: item.id || String(i),
+    name: (item.text || 'TikTok Trending').slice(0, 50),
+    category: 'TikTok',
+    color: PRODUCT_COLORS[i % PRODUCT_COLORS.length],
+    views: item.playCount || 0,
+    mentions: item.diggCount || 0,
+    viralScore: Math.min(99, Math.round(Math.log10((item.playCount || 1) + 1) * 15)),
+    convLift: Math.min(49, Math.round((item.diggCount || 0) / 8000)),
+    spark: generateSpark(item.playCount || 50000, 11),
+    tags: (item.hashtags || []).slice(0, 3).map(h => h.name || h).filter(Boolean),
+  }));
+}
+
+async function fetchFromBackend(path) {
+  const base = STORAGE.get('backend').replace(/\/$/, '');
+  if (!base) return null;
+  const res = await fetch(`${base}${path}`);
+  if (!res.ok) return null;
+  return res.json();
+}
 
 // ─── Shared Components ────────────────────────────────────────────────────────
 
@@ -166,7 +340,7 @@ function SparkLine({ data, color = '#C65D2E', height = 32, width = 80 }) {
     const y = height - ((v - min) / range) * height;
     return `${x},${y}`;
   }).join(' ');
-  const area = `M0,${height} L${pts.split(' ').map(p => p).join(' L')} L${width},${height} Z`;
+  const area = `M0,${height} L${pts.split(' ').join(' L')} L${width},${height} Z`;
   return (
     <svg width={width} height={height} style={{ overflow: 'visible' }}>
       <defs>
@@ -368,8 +542,8 @@ function TrendingProducts({ products }) {
             borderRadius: '0.5rem',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             border: `1px solid ${p.color}18`,
-            backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 4px, ${p.color}06 4px, ${p.color}06 5px)`,
             background: `linear-gradient(135deg, ${p.color}22, ${p.color}08)`,
+            backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 4px, ${p.color}06 4px, ${p.color}06 5px)`,
           }}>
             <span style={{ color: '#666', fontSize: '0.62rem' }}>product img</span>
           </div>
@@ -379,7 +553,7 @@ function TrendingProducts({ products }) {
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-              <span style={{ fontSize: '0.65rem', color: '#666', textTransform: 'uppercase', letterSpacing: '0.08em' }}>TikTok Views</span>
+              <span style={{ fontSize: '0.65rem', color: '#666', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Engagement</span>
               <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#F3F1ED', letterSpacing: '-0.02em' }}>
                 {fmtViews(p.views)}
               </span>
@@ -388,7 +562,7 @@ function TrendingProducts({ products }) {
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.6rem' }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '0.65rem', color: '#666' }}>Mentions</div>
+              <div style={{ fontSize: '0.65rem', color: '#666' }}>Comments</div>
               <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#E07A45' }}>{p.mentions.toLocaleString()}</div>
             </div>
             <div style={{ textAlign: 'center' }}>
@@ -407,6 +581,13 @@ function TrendingProducts({ products }) {
               </span>
             ))}
           </div>
+          {p.sourceUrl && (
+            <a href={p.sourceUrl} target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: '0.62rem', color: '#555', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+            >
+              <span>↗</span> view source
+            </a>
+          )}
         </div>
       ))}
     </div>
@@ -469,7 +650,185 @@ function TrafficSources({ sources }) {
   );
 }
 
-// ─── Sample Data ──────────────────────────────────────────────────────────────
+// ─── Settings Modal ───────────────────────────────────────────────────────────
+
+function SettingsModal({ onClose, onSave }) {
+  const [apify, setApify]     = React.useState(STORAGE.get('apify'));
+  const [backend, setBackend] = React.useState(STORAGE.get('backend'));
+  const [testing, setTesting] = React.useState({});
+  const [status, setStatus]   = React.useState({});
+
+  const test = async (key, fn) => {
+    setTesting(t => ({...t, [key]: true}));
+    setStatus(s => ({...s, [key]: null}));
+    try {
+      const ok = await fn();
+      setStatus(s => ({...s, [key]: ok ? 'ok' : 'fail'}));
+    } catch {
+      setStatus(s => ({...s, [key]: 'fail'}));
+    }
+    setTesting(t => ({...t, [key]: false}));
+  };
+
+  const testApify = () => test('apify', async () => {
+    const r = await fetch(`https://api.apify.com/v2/users/me?token=${apify}`);
+    return r.ok;
+  });
+
+  const testBackend = () => test('backend', async () => {
+    const r = await fetch(`${backend.replace(/\/$/, '')}/api/health`);
+    return r.ok;
+  });
+
+  const testReddit = () => test('reddit', async () => {
+    const r = await fetch('https://www.reddit.com/r/TikTokMadeMeBuyIt/top.json?t=week&limit=1&raw_json=1');
+    return r.ok;
+  });
+
+  const save = () => {
+    STORAGE.set('apify', apify);
+    STORAGE.set('backend', backend);
+    onSave();
+    onClose();
+  };
+
+  const StatusBadge = ({ k }) => {
+    if (testing[k]) return <span style={{fontSize:'0.68rem',color:'#888'}}>testing…</span>;
+    if (status[k] === 'ok')   return <span style={{fontSize:'0.68rem',color:'#4CAF50',fontWeight:600}}>✓ Connected</span>;
+    if (status[k] === 'fail') return <span style={{fontSize:'0.68rem',color:'#ef5350',fontWeight:600}}>✗ Failed</span>;
+    return null;
+  };
+
+  const sourceRow = (label, desc, onTest, testKey, alwaysActive = false) => (
+    <div style={{
+      padding: '0.9rem 1rem',
+      background: 'rgba(255,255,255,0.03)',
+      borderRadius: '0.75rem',
+      border: '1px solid rgba(255,255,255,0.07)',
+      display: 'flex', flexDirection: 'column', gap: '0.4rem',
+    }}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span style={{fontSize:'0.82rem',fontWeight:600}}>{label}</span>
+        <div style={{display:'flex',alignItems:'center',gap:'0.5rem'}}>
+          <StatusBadge k={testKey} />
+          {alwaysActive
+            ? <span className="source-chip live">ACTIVE</span>
+            : <button className="test-btn" onClick={onTest} disabled={testing[testKey]}>Test</button>
+          }
+        </div>
+      </div>
+      <p style={{fontSize:'0.7rem',color:'#666'}}>{desc}</p>
+    </div>
+  );
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: '#24272B',
+        border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: '1.25rem',
+        padding: '2rem',
+        width: '100%', maxWidth: '500px',
+        display: 'flex', flexDirection: 'column', gap: '1.25rem',
+        maxHeight: '90dvh', overflowY: 'auto',
+      }}>
+        {/* Header */}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div>
+            <div style={{fontWeight:700,fontSize:'1rem'}}>Data Sources</div>
+            <div style={{fontSize:'0.7rem',color:'#666',marginTop:'0.2rem'}}>Configure live trend feeds</div>
+          </div>
+          <button onClick={onClose} className="icon-btn" style={{fontSize:'1rem'}}>✕</button>
+        </div>
+
+        {/* Reddit - free, always works */}
+        {sourceRow(
+          'Reddit (r/TikTokMadeMeBuyIt)',
+          'Free • No key required • Pulls top weekly posts across 3 viral product subreddits',
+          testReddit, 'reddit', false
+        )}
+
+        {/* Apify */}
+        <div style={{display:'flex',flexDirection:'column',gap:'0.5rem'}}>
+          <label style={{fontSize:'0.75rem',color:'#B8B2AA',fontWeight:600}}>
+            Apify API Key
+            <span style={{color:'#555',fontWeight:400}}> — TikTok hashtag scraper</span>
+          </label>
+          <div style={{display:'flex',gap:'0.5rem'}}>
+            <input
+              className="field-input"
+              type="password"
+              placeholder="apify_api_xxxxxxxxxxxxxxxxxxxx"
+              value={apify}
+              onChange={e => setApify(e.target.value)}
+            />
+            <button className="test-btn" onClick={testApify} disabled={!apify||testing.apify}>
+              {testing.apify ? '…' : status.apify === 'ok' ? '✓' : status.apify === 'fail' ? '✗' : 'Test'}
+            </button>
+          </div>
+          <p style={{fontSize:'0.7rem',color:'#555'}}>
+            Free account at apify.com → ~$0.004/run. When set, overrides Reddit trends with real TikTok data.
+          </p>
+        </div>
+
+        {/* Backend URL */}
+        <div style={{display:'flex',flexDirection:'column',gap:'0.5rem'}}>
+          <label style={{fontSize:'0.75rem',color:'#B8B2AA',fontWeight:600}}>
+            Backend URL
+            <span style={{color:'#555',fontWeight:400}}> — Pinterest • Google Trends • Amazon</span>
+          </label>
+          <div style={{display:'flex',gap:'0.5rem'}}>
+            <input
+              className="field-input"
+              type="text"
+              placeholder="http://localhost:3001"
+              value={backend}
+              onChange={e => setBackend(e.target.value)}
+            />
+            <button className="test-btn" onClick={testBackend} disabled={!backend||testing.backend}>
+              {testing.backend ? '…' : status.backend === 'ok' ? '✓' : status.backend === 'fail' ? '✗' : 'Test'}
+            </button>
+          </div>
+          <p style={{fontSize:'0.7rem',color:'#555'}}>
+            Run <code style={{background:'rgba(255,255,255,0.07)',padding:'0 0.25rem',borderRadius:'0.25rem'}}>node server.js</code> locally or deploy to Railway / Render / Cloudflare Workers.
+          </p>
+        </div>
+
+        {/* Backend sources info */}
+        <div style={{
+          padding: '0.75rem 1rem',
+          background: 'rgba(255,255,255,0.02)',
+          borderRadius: '0.75rem',
+          border: '1px solid rgba(255,255,255,0.05)',
+          display: 'flex', flexDirection: 'column', gap: '0.4rem',
+        }}>
+          <span style={{fontSize:'0.72rem',fontWeight:600,color:'#B8B2AA'}}>Backend unlocks</span>
+          {[
+            ['Pinterest Trends', 'free dev API — 3-6 months leading indicator'],
+            ['Google Trends',    'pytrends equivalent — confirms broader intent'],
+            ['Amazon Movers',    'hourly sales velocity — purchase confirmation'],
+          ].map(([name, desc]) => (
+            <div key={name} style={{display:'flex',gap:'0.5rem',alignItems:'baseline'}}>
+              <span style={{fontSize:'0.7rem',color:'#666'}}>→</span>
+              <span style={{fontSize:'0.72rem',color:'#888'}}><span style={{color:'#B8B2AA',fontWeight:500}}>{name}</span> — {desc}</span>
+            </div>
+          ))}
+        </div>
+
+        <button onClick={save} style={{
+          background: 'linear-gradient(135deg, #C65D2E, #8C3D1A)',
+          border: 'none', borderRadius: '0.75rem',
+          padding: '0.75rem', color: '#F3F1ED',
+          fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer',
+          fontFamily: 'Outfit, sans-serif',
+          transition: 'opacity 0.15s',
+        }}>Save & Refresh Data</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sample Fallback Data ─────────────────────────────────────────────────────
 
 const REVENUE_DATA = [
   { label: 'Apr 1',  v: 41200 }, { label: 'Apr 4',  v: 38700 }, { label: 'Apr 7',  v: 52300 },
@@ -479,76 +838,76 @@ const REVENUE_DATA = [
 ];
 
 const FUNNEL_STAGES = [
-  { label: 'Visitors',    v: 148320 },
-  { label: 'Product Views', v: 89014 },
-  { label: 'Add to Cart',   v: 31206 },
-  { label: 'Checkout',      v: 14882 },
-  { label: 'Purchased',     v: 9741  },
+  { label: 'Visitors',      v: 148320 },
+  { label: 'Product Views', v: 89014  },
+  { label: 'Add to Cart',   v: 31206  },
+  { label: 'Checkout',      v: 14882  },
+  { label: 'Purchased',     v: 9741   },
 ];
 
-const TRENDING_PRODUCTS = [
+const SAMPLE_TRENDING = [
   { id: 1, name: 'Stanley Quencher 40oz', category: 'Drinkware', color: '#E07A45',
     views: 4820000, mentions: 18420, viralScore: 98, convLift: 34,
     spark: [32,38,35,51,63,71,68,84,92,88,103],
-    tags: ['drinkware', 'viral', 'hydration'] },
+    tags: ['drinkware','viral','hydration'] },
   { id: 2, name: 'Laneige Lip Mask', category: 'Beauty', color: '#C65D2E',
     views: 3140000, mentions: 12880, viralScore: 94, convLift: 28,
     spark: [18,22,19,31,40,38,52,61,58,72,80],
-    tags: ['skincare', 'beauty', 'dupes'] },
+    tags: ['skincare','beauty','dupes'] },
   { id: 3, name: 'Dyson Airwrap', category: 'Hair Tools', color: '#9C4B22',
     views: 2690000, mentions: 9310, viralScore: 91, convLift: 22,
     spark: [45,42,51,48,60,58,65,71,68,80,76],
-    tags: ['hairtools', 'dyson', 'hairstyle'] },
+    tags: ['hairtools','dyson','hairstyle'] },
   { id: 4, name: 'Hailey Bieber Nails', category: 'Nail & Beauty', color: '#B05A30',
     views: 1980000, mentions: 7640, viralScore: 87, convLift: 19,
     spark: [10,14,12,22,28,25,38,42,40,51,57],
-    tags: ['nails', 'glazed', 'aesthetic'] },
+    tags: ['nails','glazed','aesthetic'] },
   { id: 5, name: 'Cloud Slippers', category: 'Footwear', color: '#7A3C1E',
     views: 1540000, mentions: 5920, viralScore: 83, convLift: 16,
     spark: [8,11,9,18,21,19,28,33,31,40,44],
-    tags: ['fashion', 'cozy', 'slippers'] },
+    tags: ['fashion','cozy','slippers'] },
   { id: 6, name: 'Viral Blush Trio', category: 'Makeup', color: '#D4693A',
     views: 1120000, mentions: 4310, viralScore: 79, convLift: 14,
     spark: [5,8,7,12,16,14,22,27,25,32,36],
-    tags: ['makeup', 'blush', 'glow'] },
+    tags: ['makeup','blush','glow'] },
 ];
 
 const TOP_PRODUCTS_ROWS = [
-  { name: 'Stanley Quencher 40oz', sku: 'STN-40-CREAM',  rev: 284600, units: '4.2k', trend: 38 },
-  { name: 'Laneige Lip Mask',      sku: 'LNG-LM-BERRY',  rev: 198400, units: '3.1k', trend: 24 },
-  { name: 'Dyson Airwrap 2024',    sku: 'DYS-AW-NKL',    rev: 176200, units: '840',  trend: 17 },
-  { name: 'Cloud Slide Sandal',    sku: 'CLD-SLD-WHT',   rev: 142800, units: '2.8k', trend: 12 },
-  { name: 'Glossier You Perfume',  sku: 'GLS-YOU-35ML',  rev: 118300, units: '1.9k', trend: 9  },
-  { name: 'Rhode Peptide Lip',     sku: 'RHD-PLT-GLSS',  rev:  94700, units: '2.4k', trend: -3 },
+  { name: 'Stanley Quencher 40oz',  sku: 'STN-40-CREAM',  rev: 284600, units: '4.2k', trend: 38 },
+  { name: 'Laneige Lip Mask',       sku: 'LNG-LM-BERRY',  rev: 198400, units: '3.1k', trend: 24 },
+  { name: 'Dyson Airwrap 2024',     sku: 'DYS-AW-NKL',    rev: 176200, units: '840',  trend: 17 },
+  { name: 'Cloud Slide Sandal',     sku: 'CLD-SLD-WHT',   rev: 142800, units: '2.8k', trend: 12 },
+  { name: 'Glossier You Perfume',   sku: 'GLS-YOU-35ML',  rev: 118300, units: '1.9k', trend: 9  },
+  { name: 'Rhode Peptide Lip',      sku: 'RHD-PLT-GLSS',  rev:  94700, units: '2.4k', trend: -3 },
 ];
 
 const TRAFFIC_SOURCES = [
-  { label: 'TikTok',      v: 58400 },
-  { label: 'Instagram',   v: 34100 },
-  { label: 'Organic Search', v: 21600 },
-  { label: 'Direct',      v: 18200 },
-  { label: 'YouTube',     v: 11900 },
-  { label: 'Pinterest',   v: 4100  },
+  { label: 'TikTok',          v: 58400 },
+  { label: 'Instagram',       v: 34100 },
+  { label: 'Organic Search',  v: 21600 },
+  { label: 'Direct',          v: 18200 },
+  { label: 'YouTube',         v: 11900 },
+  { label: 'Pinterest',       v: 4100  },
 ];
 
-const TICKER_TAGS = [
+const SAMPLE_TAGS = [
   'glazeddonutskin','quietluxury','oldmoneystyle','coquette','cleanbeauty',
   'thatgirl','strawberrymakeup','mobilitydrills','grwm','haul','ootd',
   'skincarecheck','viralnails','aestheticroom','healthylifestyle',
 ];
 
 const KPI_DATA = [
-  { label: 'Total Revenue',    value: '$1.02M', sub: 'vs last 30d', trend: 18.4, accent: true  },
-  { label: 'Orders',           value: '9741',   sub: 'vs last 30d', trend: 12.1, accent: false },
-  { label: 'Avg Order Value',  value: '$104.7', sub: 'vs last 30d', trend: 5.8,  accent: false },
-  { label: 'Conversion Rate',  value: '6.57%',  sub: 'vs last 30d', trend: 0.9,  accent: false },
-  { label: 'TikTok-Driven Rev',value: '$381k',  sub: 'vs last 30d', trend: 41.2, accent: false },
-  { label: 'Repeat Buyers',    value: '38.4%',  sub: 'vs last 30d', trend: 3.2,  accent: false },
+  { label: 'Total Revenue',     value: '$1.02M', sub: 'vs last 30d', trend: 18.4, accent: true  },
+  { label: 'Orders',            value: '9741',   sub: 'vs last 30d', trend: 12.1, accent: false },
+  { label: 'Avg Order Value',   value: '$104.7', sub: 'vs last 30d', trend: 5.8,  accent: false },
+  { label: 'Conversion Rate',   value: '6.57%',  sub: 'vs last 30d', trend: 0.9,  accent: false },
+  { label: 'TikTok-Driven Rev', value: '$381k',  sub: 'vs last 30d', trend: 41.2, accent: false },
+  { label: 'Repeat Buyers',     value: '38.4%',  sub: 'vs last 30d', trend: 3.2,  accent: false },
 ];
 
 // ─── Layout Helpers ───────────────────────────────────────────────────────────
 
-function Card({ title, badge, children, style = {} }) {
+function Card({ title, badge, source, children, style = {} }) {
   return (
     <div style={{
       background: '#24272B',
@@ -562,14 +921,17 @@ function Card({ title, badge, children, style = {} }) {
       {title && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: '0.78rem', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#B8B2AA' }}>{title}</span>
-          {badge && (
-            <span style={{
-              fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em',
-              padding: '0.15rem 0.5rem', borderRadius: '0.3rem',
-              background: 'rgba(198,93,46,0.15)', color: '#E07A45',
-              border: '1px solid rgba(198,93,46,0.2)',
-            }}>{badge}</span>
-          )}
+          <div style={{display:'flex',gap:'0.4rem',alignItems:'center'}}>
+            {source && <span className={`source-chip ${source}`}>{source === 'live' ? 'LIVE' : 'SAMPLE'}</span>}
+            {badge && (
+              <span style={{
+                fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em',
+                padding: '0.15rem 0.5rem', borderRadius: '0.3rem',
+                background: 'rgba(198,93,46,0.15)', color: '#E07A45',
+                border: '1px solid rgba(198,93,46,0.2)',
+              }}>{badge}</span>
+            )}
+          </div>
         </div>
       )}
       {children}
@@ -579,8 +941,9 @@ function Card({ title, badge, children, style = {} }) {
 
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 
-function Nav({ activeTab, setActiveTab }) {
+function Nav({ activeTab, setActiveTab, onSettings, dataSources }) {
   const tabs = ['Overview', 'Trending', 'Products', 'Analytics'];
+  const liveCount = Object.values(dataSources).filter(Boolean).length;
   return (
     <header style={{
       position: 'sticky', top: 0, zIndex: 100,
@@ -588,7 +951,7 @@ function Nav({ activeTab, setActiveTab }) {
       backdropFilter: 'blur(12px)',
       borderBottom: '1px solid rgba(255,255,255,0.06)',
       padding: '0 2rem',
-      display: 'flex', alignItems: 'center', gap: '2.5rem',
+      display: 'flex', alignItems: 'center', gap: '2rem',
       height: '56px',
     }}>
       {/* Logo */}
@@ -610,42 +973,73 @@ function Nav({ activeTab, setActiveTab }) {
       <nav style={{ display: 'flex', gap: '0.25rem', flex: 1 }}>
         {tabs.map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)} style={{
-            background: 'none', border: 'none', cursor: 'pointer',
+            background: activeTab === tab ? 'rgba(255,255,255,0.06)' : 'transparent',
+            border: 'none', cursor: 'pointer',
             padding: '0.35rem 0.75rem', borderRadius: '0.5rem',
             fontSize: '0.8rem', fontWeight: activeTab === tab ? 600 : 400,
             color: activeTab === tab ? '#F3F1ED' : '#666',
             fontFamily: 'Outfit, sans-serif',
-            background: activeTab === tab ? 'rgba(255,255,255,0.06)' : 'transparent',
             transition: 'all 0.15s',
           }}>{tab}</button>
         ))}
       </nav>
 
-      {/* Live indicator */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-        <div className="pulse-dot" />
-        <span style={{ fontSize: '0.7rem', color: '#B8B2AA', fontWeight: 500 }}>LIVE</span>
+      {/* Right side */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
+        {liveCount > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <div className="pulse-dot green" />
+            <span style={{ fontSize: '0.68rem', color: '#4CAF50', fontWeight: 600 }}>
+              {liveCount} LIVE SOURCE{liveCount > 1 ? 'S' : ''}
+            </span>
+          </div>
+        )}
+        {liveCount === 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <div className="pulse-dot" />
+            <span style={{ fontSize: '0.68rem', color: '#B8B2AA', fontWeight: 500 }}>SAMPLE DATA</span>
+          </div>
+        )}
+        <button className="icon-btn" onClick={onSettings} title="Configure data sources">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <circle cx="7" cy="7" r="2"/>
+            <path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.5 2.5l1.1 1.1M10.4 10.4l1.1 1.1M2.5 11.5l1.1-1.1M10.4 3.6l1.1-1.1"/>
+          </svg>
+        </button>
       </div>
     </header>
   );
 }
 
-// ─── Overview Tab ─────────────────────────────────────────────────────────────
+// ─── Loading Skeleton ─────────────────────────────────────────────────────────
 
-function OverviewTab() {
+function TrendingSkeleton() {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '0.75rem' }}>
+      {Array.from({length: 6}).map((_, i) => (
+        <div key={i} style={{background:'#2E3237',borderRadius:'0.875rem',padding:'1rem',display:'flex',flexDirection:'column',gap:'0.6rem'}}>
+          <div className="skeleton" style={{height:'90px',borderRadius:'0.5rem'}}/>
+          <div className="skeleton" style={{height:'14px',width:'80%'}}/>
+          <div className="skeleton" style={{height:'10px',width:'50%'}}/>
+          <div className="skeleton" style={{height:'36px'}}/>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+
+function OverviewTab({ trendingProducts, tickerTags, dataSources }) {
+  const isLive = dataSources.reddit || dataSources.apify;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      {/* Ticker */}
-      <Card badge="TRENDING NOW">
-        <LiveTicker tags={TICKER_TAGS} />
+      <Card badge="TRENDING NOW" source={isLive ? 'live' : 'sample'}>
+        <LiveTicker tags={tickerTags} />
       </Card>
-
-      {/* KPIs */}
       <div className="fade-up d1" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem' }}>
         {KPI_DATA.map((k, i) => <KPICard key={i} {...k} />)}
       </div>
-
-      {/* Revenue chart + funnel */}
       <div className="fade-up d2" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
         <Card title="Revenue" badge="30D">
           <RevenueChart data={REVENUE_DATA} />
@@ -654,8 +1048,6 @@ function OverviewTab() {
           <OrderFunnel stages={FUNNEL_STAGES} />
         </Card>
       </div>
-
-      {/* Top products + traffic */}
       <div className="fade-up d3" style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '1rem' }}>
         <Card title="Top Products by Revenue">
           <TopProducts rows={TOP_PRODUCTS_ROWS} />
@@ -668,30 +1060,30 @@ function OverviewTab() {
   );
 }
 
-// ─── Trending Tab ─────────────────────────────────────────────────────────────
-
-function TrendingTab() {
+function TrendingTab({ trendingProducts, tickerTags, loading, dataSources }) {
+  const isLive = dataSources.reddit || dataSources.apify;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      <Card title="TikTok-Driven Products" badge="LIVE">
-        <TrendingProducts products={TRENDING_PRODUCTS} />
+      <Card
+        title={isLive ? 'Trending Products — Live Feed' : 'Trending Products — Sample Data'}
+        source={isLive ? 'live' : 'sample'}
+      >
+        {loading ? <TrendingSkeleton /> : <TrendingProducts products={trendingProducts} />}
       </Card>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
         <Card title="Traffic Sources">
           <TrafficSources sources={TRAFFIC_SOURCES} />
         </Card>
-        <Card title="Trending Hashtags" badge="LIVE">
+        <Card title="Trending Hashtags" source={isLive ? 'live' : 'sample'}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <LiveTicker tags={TICKER_TAGS.slice(0, 8)} />
-            <LiveTicker tags={TICKER_TAGS.slice(8)} />
+            <LiveTicker tags={tickerTags.slice(0, Math.ceil(tickerTags.length / 2))} />
+            <LiveTicker tags={tickerTags.slice(Math.ceil(tickerTags.length / 2))} />
           </div>
         </Card>
       </div>
     </div>
   );
 }
-
-// ─── Products Tab ─────────────────────────────────────────────────────────────
 
 function ProductsTab() {
   return (
@@ -705,8 +1097,6 @@ function ProductsTab() {
     </div>
   );
 }
-
-// ─── Analytics Tab ────────────────────────────────────────────────────────────
 
 function AnalyticsTab() {
   return (
@@ -732,17 +1122,84 @@ function AnalyticsTab() {
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 function App() {
-  const [activeTab, setActiveTab] = React.useState('Overview');
+  const [activeTab,       setActiveTab]       = React.useState('Overview');
+  const [showSettings,    setShowSettings]    = React.useState(false);
+  const [trendingProducts,setTrendingProducts]= React.useState(SAMPLE_TRENDING);
+  const [tickerTags,      setTickerTags]      = React.useState(SAMPLE_TAGS);
+  const [loading,         setLoading]         = React.useState(true);
+  const [dataSources,     setDataSources]     = React.useState({reddit:false,apify:false,backend:false});
 
-  const tabs = { Overview: OverviewTab, Trending: TrendingTab, Products: ProductsTab, Analytics: AnalyticsTab };
-  const ActiveView = tabs[activeTab] || OverviewTab;
+  const loadData = React.useCallback(async () => {
+    setLoading(true);
+    const sources = { reddit: false, apify: false, backend: false };
+
+    // Try Apify first (richer TikTok data) if key is configured
+    const apifyKey = STORAGE.get('apify');
+    if (apifyKey) {
+      try {
+        const apifyProducts = await fetchApifyTikTok(apifyKey);
+        if (apifyProducts && apifyProducts.length > 0) {
+          setTrendingProducts(apifyProducts);
+          sources.apify = true;
+        }
+      } catch { /* fall through */ }
+    }
+
+    // Reddit — always attempt (free, no key)
+    try {
+      const [products, hashtags] = await Promise.all([
+        fetchRedditProducts(),
+        fetchRedditHashtags(),
+      ]);
+      if (products.length > 0 && !sources.apify) {
+        setTrendingProducts(products);
+      }
+      if (hashtags.length > 0) {
+        setTickerTags(hashtags);
+      }
+      sources.reddit = products.length > 0;
+    } catch { /* fall through to sample data */ }
+
+    // Backend sources (Pinterest, Google Trends, Amazon) if configured
+    const backendBase = STORAGE.get('backend');
+    if (backendBase) {
+      try {
+        const health = await fetch(`${backendBase.replace(/\/$/, '')}/api/health`);
+        sources.backend = health.ok;
+      } catch { /* backend not reachable */ }
+    }
+
+    setDataSources(sources);
+    setLoading(false);
+  }, []);
+
+  React.useEffect(() => { loadData(); }, [loadData]);
+
+  const tabs = {
+    Overview:  () => <OverviewTab  trendingProducts={trendingProducts} tickerTags={tickerTags} dataSources={dataSources} />,
+    Trending:  () => <TrendingTab  trendingProducts={trendingProducts} tickerTags={tickerTags} loading={loading} dataSources={dataSources} />,
+    Products:  () => <ProductsTab />,
+    Analytics: () => <AnalyticsTab />,
+  };
+  const ActiveView = tabs[activeTab] || tabs.Overview;
 
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
-      <Nav activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Nav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onSettings={() => setShowSettings(true)}
+        dataSources={dataSources}
+      />
       <main style={{ flex: 1, padding: '1.5rem 2rem 3rem', maxWidth: '1400px', width: '100%', margin: '0 auto' }}>
         <ActiveView />
       </main>
+      {showSettings && (
+        <SettingsModal
+          onClose={() => setShowSettings(false)}
+          onSave={loadData}
+        />
+      )}
     </div>
   );
 }

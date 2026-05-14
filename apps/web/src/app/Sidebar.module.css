@@ -1,0 +1,122 @@
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-width);
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  transition: width var(--duration-normal) var(--ease-out-expo);
+  overflow: hidden;
+  z-index: 50;
+}
+
+.sidebar[data-collapsed='true'] {
+  width: var(--sidebar-collapsed-width);
+}
+
+/* Logo */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  height: var(--topbar-height);
+  flex-shrink: 0;
+}
+
+.logoIcon {
+  width: 28px;
+  height: 28px;
+  background: var(--accent);
+  border-radius: var(--radius-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.logoText {
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  color: var(--text-1);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+/* Nav */
+.nav {
+  flex: 1;
+  padding: var(--space-2) 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  margin: 2px var(--space-2);
+  border-radius: var(--radius-2);
+  color: var(--text-2);
+  font-size: var(--text-body);
+  font-weight: var(--weight-medium);
+  transition: color var(--duration-fast), background var(--duration-fast);
+  white-space: nowrap;
+  text-decoration: none;
+  min-height: 36px;
+}
+
+.navItem:hover {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
+
+.navItem.active {
+  color: var(--text-1);
+  background: var(--bg-overlay);
+}
+
+.navItem.active .navIcon {
+  color: var(--accent);
+}
+
+.navIcon {
+  flex-shrink: 0;
+}
+
+.navLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Bottom */
+.bottom {
+  padding: var(--space-2) 0 var(--space-3);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.collapseBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-2);
+  color: var(--text-3);
+  transition: color var(--duration-fast), background var(--duration-fast);
+  min-height: 32px;
+}
+
+.collapseBtn:hover {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
