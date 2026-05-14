@@ -1,0 +1,20 @@
+.card {
+  border-radius: var(--radius-3);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.default  { background: var(--bg-elevated); }
+.elevated { background: var(--bg-overlay); box-shadow: var(--shadow-raised); }
+.ghost    { background: transparent; border-color: transparent; }
+
+.interactive {
+  cursor: pointer;
+  transition: border-color var(--duration-fast), background var(--duration-fast), transform var(--duration-fast);
+}
+
+.interactive:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-overlay);
+  transform: translateY(-1px);
+}

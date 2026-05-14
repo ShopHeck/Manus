@@ -1,0 +1,115 @@
+.root {
+  min-height: 100vh;
+}
+
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.title {
+  font-size: var(--text-h2);
+  font-weight: var(--weight-bold);
+  color: var(--text-1);
+  line-height: var(--leading-tight);
+}
+
+.subtitle {
+  font-size: var(--text-body);
+  color: var(--text-3);
+  margin-top: 4px;
+}
+
+/* Source status */
+.sourceStatus {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.sourceDot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.dot[data-state='ok']      { background: var(--success); }
+.dot[data-state='error']   { background: var(--danger); }
+.dot[data-state='loading'] {
+  background: var(--warning);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+.dotLabel {
+  font-size: var(--text-micro);
+  color: var(--text-3);
+}
+
+/* Results header */
+.resultsHeader {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
+.resultCount {
+  font-size: var(--text-micro);
+  color: var(--text-3);
+  font-weight: var(--weight-medium);
+}
+
+/* Grid */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-4);
+}
+
+.skeletonCard {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-3);
+  overflow: hidden;
+}
+
+/* Empty */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-16) var(--space-6);
+  text-align: center;
+}
+
+.emptyIcon { font-size: 40px; margin-bottom: var(--space-4); }
+
+.emptyTitle {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-1);
+  margin-bottom: var(--space-2);
+}
+
+.emptyDesc {
+  font-size: var(--text-body);
+  color: var(--text-3);
+  max-width: 360px;
+}

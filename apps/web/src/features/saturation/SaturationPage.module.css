@@ -1,0 +1,116 @@
+.root { min-height: 100vh; }
+
+.title {
+  font-size: var(--text-h2);
+  font-weight: var(--weight-bold);
+  color: var(--text-1);
+}
+
+.subtitle {
+  font-size: var(--text-body);
+  color: var(--text-3);
+  margin-top: 4px;
+  margin-bottom: var(--space-6);
+}
+
+/* Matrix */
+.matrix {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-8);
+}
+
+.matrixYLabel {
+  font-size: var(--text-micro);
+  color: var(--text-3);
+  text-align: center;
+}
+
+.quadrants {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.quadrant {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-3);
+  padding: var(--space-4);
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.quadrantHighlight {
+  border-color: var(--success);
+  background: var(--success-bg);
+}
+
+.qTitle {
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+  color: var(--text-1);
+}
+
+.qSub {
+  font-size: var(--text-micro);
+  color: var(--text-3);
+  margin-top: 4px;
+}
+
+.matrixXLabel {
+  font-size: var(--text-micro);
+  color: var(--text-3);
+  text-align: center;
+}
+
+/* Table */
+.table {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-3);
+  overflow: hidden;
+}
+
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tbl th {
+  text-align: left;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semibold);
+  color: var(--text-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-overlay);
+}
+
+.tbl td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-body);
+  color: var(--text-1);
+}
+
+.tbl tr:last-child td { border-bottom: none; }
+
+.tbl tr:hover td { background: var(--bg-hover); }
+
+.productName {
+  font-weight: var(--weight-medium);
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cat {
+  font-size: var(--text-micro);
+  color: var(--text-3);
+}

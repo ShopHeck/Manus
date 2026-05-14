@@ -1,0 +1,14 @@
+.skeleton {
+  display: block;
+  background: var(--bg-overlay);
+  border-radius: var(--radius-2);
+  animation: shimmer 1.5s ease-in-out infinite;
+  min-height: 14px;
+  min-width: 40px;
+}
+
+@keyframes shimmer {
+  0%   { opacity: 0.6; }
+  50%  { opacity: 1;   }
+  100% { opacity: 0.6; }
+}

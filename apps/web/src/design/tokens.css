@@ -1,0 +1,135 @@
+/* TRENDZ Design Tokens — single source of truth */
+:root {
+  /* ── Backgrounds ─────────────────────────────── */
+  --bg-app:      #09090B;
+  --bg-elevated: #18181B;
+  --bg-overlay:  #27272A;
+  --bg-hover:    #2D2D32;
+  --bg-active:   #3F3F46;
+
+  /* ── Borders ─────────────────────────────────── */
+  --border:        #27272A;
+  --border-strong: #3F3F46;
+
+  /* ── Text ────────────────────────────────────── */
+  --text-1: #FAFAFA;
+  --text-2: #A1A1AA;
+  --text-3: #71717A;
+  --text-4: #52525B;
+
+  /* ── Brand / Accent ──────────────────────────── */
+  --accent:   #C65D2E;
+  --accent-2: #E07A45;
+  --accent-bg: rgba(198, 93, 46, 0.12);
+  --accent-border: rgba(198, 93, 46, 0.30);
+
+  /* ── Semantic ────────────────────────────────── */
+  --success:      #10B981;
+  --success-bg:   rgba(16, 185, 129, 0.12);
+  --warning:      #F59E0B;
+  --warning-bg:   rgba(245, 158, 11, 0.12);
+  --danger:       #EF4444;
+  --danger-bg:    rgba(239, 68, 68, 0.12);
+  --info:         #3B82F6;
+  --info-bg:      rgba(59, 130, 246, 0.12);
+
+  /* ── Source colors ───────────────────────────── */
+  --reddit:   #FF4500;
+  --tiktok:   #69C9D0;
+  --pinterest:#E60023;
+  --google:   #4285F4;
+  --amazon:   #FF9900;
+
+  /* ── Typography ──────────────────────────────── */
+  --font-sans: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --text-caption: 11px;
+  --text-micro:   12px;
+  --text-body:    14px;
+  --text-md:      16px;
+  --text-h4:      20px;
+  --text-h3:      24px;
+  --text-h2:      32px;
+  --text-h1:      48px;
+
+  --weight-normal:   400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+
+  --leading-tight:  1.2;
+  --leading-normal: 1.5;
+  --leading-loose:  1.75;
+
+  /* ── Spacing (4-pt grid) ─────────────────────── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ── Border Radius ───────────────────────────── */
+  --radius-1: 4px;
+  --radius-2: 8px;
+  --radius-3: 12px;
+  --radius-4: 16px;
+  --radius-full: 9999px;
+
+  /* ── Shadows ─────────────────────────────────── */
+  --shadow-raised:  0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-float:   0 4px 16px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.3);
+  --shadow-modal:   0 20px 60px rgba(0,0,0,0.7), 0 4px 16px rgba(0,0,0,0.4);
+
+  /* ── Motion ──────────────────────────────────── */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast:   120ms;
+  --duration-normal: 200ms;
+  --duration-slow:   320ms;
+
+  /* ── Layout ──────────────────────────────────── */
+  --sidebar-width:          220px;
+  --sidebar-collapsed-width: 52px;
+  --topbar-height:           52px;
+  --drawer-width:            480px;
+}
+
+/* ── Reset + Base ────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  color: var(--text-1);
+  background: var(--bg-app);
+  line-height: var(--leading-normal);
+  min-height: 100vh;
+}
+
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; }
+input, select, textarea { font-family: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-1);
+}
+
+::selection {
+  background: var(--accent-bg);
+  color: var(--text-1);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-4); }
