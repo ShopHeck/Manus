@@ -3,6 +3,7 @@ import { TrendingUp, TrendingDown, Minus, Star, ExternalLink, Sparkles, CookingP
 import type { TrendProduct } from '@/types';
 import { Badge } from '@/components/Badge';
 import { Score } from '@/components/Score';
+import { Sparkline } from '@/components/Sparkline';
 import { Button } from '@/components/Button';
 import { useWatchlistStore } from '@/features/watchlist/store';
 import { toast } from '@/components/Toast';
@@ -70,7 +71,10 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
           </Button>
         </div>
 
-        <h3 className={styles.name}>{product.name}</h3>
+        <div className={styles.nameRow}>
+          <h3 className={styles.name}>{product.name}</h3>
+          <Sparkline productId={product.id} metric="viral" width={56} height={18} />
+        </div>
 
         {/* Source badges */}
         <div className={styles.sourceBadges}>

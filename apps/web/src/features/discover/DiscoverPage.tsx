@@ -5,12 +5,14 @@ import { ProductCard } from './ProductCard';
 import { ProductDrawer } from './ProductDrawer';
 import { FilterBar, defaultFilters } from './FilterBar';
 import { useDiscoverData } from './useDiscoverData';
+import { useWatchlistAlerts } from '@/features/watchlist/useWatchlistAlerts';
 import styles from './DiscoverPage.module.css';
 
 export default function DiscoverPage() {
   const [filters, setFilters] = useState(defaultFilters);
   const [selected, setSelected] = useState<TrendProduct | null>(null);
   const { products, isLoading, sources } = useDiscoverData(filters);
+  useWatchlistAlerts(products);
   const sourceList = [
     { id: 'reddit',    label: 'Reddit',    s: sources.reddit },
     { id: 'tiktok',    label: 'TikTok',    s: sources.tiktok },

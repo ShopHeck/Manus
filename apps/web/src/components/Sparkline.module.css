@@ -1,0 +1,18 @@
+.root {
+  display: block;
+  flex-shrink: 0;
+}
+
+.root[data-direction='up']   .line { stroke: var(--success); }
+.root[data-direction='down'] .line { stroke: var(--danger);  }
+.root[data-direction='flat'] .line { stroke: var(--text-3);  }
+
+.empty {
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0 4px,
+    var(--border) 4px 5px
+  );
+  opacity: 0.4;
+  border-radius: var(--radius-1);
+}

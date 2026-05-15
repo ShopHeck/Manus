@@ -78,6 +78,50 @@
   color: var(--text-3);
 }
 
+.sparkRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 8px;
+}
+
+.sparkLabel {
+  font-size: var(--text-caption);
+  color: var(--text-4);
+}
+
+.alertCol {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.thresholdLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-caption);
+  color: var(--text-3);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  padding: 4px 8px;
+  cursor: text;
+}
+
+.thresholdLabel:focus-within { border-color: var(--accent); }
+
+.thresholdInput {
+  width: 36px;
+  background: transparent;
+  border: none;
+  color: var(--text-1);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  outline: none;
+  font-family: var(--font-mono);
+}
+
 /* Empty */
 .empty {
   display: flex;
