@@ -10,16 +10,50 @@ type TestState = 'idle' | 'testing' | 'ok' | 'fail';
 export default function SettingsPage() {
   const [backendUrl, setBackendUrl] = useState(() => storage.get('backendUrl', ''));
   const [apifyKey, setApifyKey]     = useState(() => storage.get('apifyApiKey', ''));
+  const [shopifyShop, setShopifyShop]   = useState(() => storage.get('shopifyShop', ''));
+  const [shopifyToken, setShopifyToken] = useState(() => storage.get('shopifyToken', ''));
 
   const [backendTest, setBackendTest] = useState<TestState>('idle');
   const [apifyTest, setApifyTest]     = useState<TestState>('idle');
+  const [shopifyTest, setShopifyTest] = useState<TestState>('idle');
   const [backendMsg, setBackendMsg]   = useState('');
   const [apifyMsg, setApifyMsg]       = useState('');
+  const [shopifyMsg, setShopifyMsg]   = useState('');
 
   function save() {
     storage.set('backendUrl', backendUrl.trim());
     storage.set('apifyApiKey', apifyKey.trim());
+    storage.set('shopifyShop', shopifyShop.trim().replace(/^https?:\/\//, ''));
+    storage.set('shopifyToken', shopifyToken.trim());
     toast('Settings saved', 'Reload the Discover page to apply.', 'success');
+  }
+
+  async function testShopify() {
+    const url   = backendUrl.trim();
+    const shop  = shopifyShop.trim().replace(/^https?:\/\//, '');
+    const token = shopifyToken.trim();
+    if (!url || !shop || !token) {
+      setShopifyTest('fail');
+      setShopifyMsg('Need Backend URL, Shop, and Token.');
+      return;
+    }
+    setShopifyTest('testing');
+    setShopifyMsg('');
+    try {
+      const res = await fetch(`${url}/api/shopify/health`, {
+        headers: {
+          'x-shopify-shop':  shop,
+          'x-shopify-token': token,
+        },
+      });
+      const json = await res.json() as { ok: boolean; shop?: { name: string } };
+      if (!res.ok || !json.ok) throw new Error(`HTTP ${res.status}`);
+      setShopifyTest('ok');
+      setShopifyMsg(`Connected to ${json.shop?.name || shop}.`);
+    } catch (err) {
+      setShopifyTest('fail');
+      setShopifyMsg(err instanceof Error ? err.message : 'Connection failed');
+    }
   }
 
   async function testBackend() {
@@ -123,6 +157,45 @@ export default function SettingsPage() {
               <span className={styles.testResult} data-ok={apifyTest === 'ok'}>
                 {apifyTest === 'ok' ? <Check size={12} /> : <X size={12} />}
                 {apifyMsg}
+              </span>
+            )}
+          </div>
+        </section>
+
+        <section className={styles.section} id="shopify">
+          <h2 className={styles.sectionTitle}>Shopify (one-click launch)</h2>
+          <p className={styles.sectionDesc}>
+            Create a custom app in your Shopify admin (Settings, Apps, Develop apps). Grant <code>write_products</code> and copy the Admin API access token.
+          </p>
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>Shop Domain</span>
+            <input
+              className={styles.input}
+              type="text"
+              placeholder="my-store.myshopify.com"
+              value={shopifyShop}
+              onChange={e => setShopifyShop(e.target.value)}
+            />
+            <span className={styles.fieldHint}>Without https://, just the myshopify.com subdomain.</span>
+          </label>
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>Admin Access Token</span>
+            <input
+              className={styles.input}
+              type="password"
+              placeholder="shpat_…"
+              value={shopifyToken}
+              onChange={e => setShopifyToken(e.target.value)}
+            />
+          </label>
+          <div className={styles.testRow}>
+            <Button variant="outline" size="sm" onClick={testShopify} disabled={shopifyTest === 'testing'}>
+              {shopifyTest === 'testing' ? <Loader2 size={12} className={styles.spin} /> : 'Test connection'}
+            </Button>
+            {shopifyTest !== 'idle' && shopifyTest !== 'testing' && (
+              <span className={styles.testResult} data-ok={shopifyTest === 'ok'}>
+                {shopifyTest === 'ok' ? <Check size={12} /> : <X size={12} />}
+                {shopifyMsg}
               </span>
             )}
           </div>

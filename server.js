@@ -250,6 +250,99 @@ app.get('/api/tiktok-trends', async (req, res) => {
   }
 });
 
+// ─── Shopify launch ───────────────────────────────────────────────────────────
+
+app.post('/api/shopify/launch', async (req, res) => {
+  const shopDomain   = req.get('x-shopify-shop')  || process.env.SHOPIFY_SHOP_DOMAIN;
+  const accessToken  = req.get('x-shopify-token') || process.env.SHOPIFY_ADMIN_TOKEN;
+
+  if (!shopDomain || !accessToken) {
+    return res.status(503).json({ error: 'Shopify not configured. Set Shop Domain and Admin Access Token in Settings.' });
+  }
+
+  const { title, descriptionHtml, tags, productType, vendor, price, sourceUrl } = req.body || {};
+  if (!title) return res.status(400).json({ error: 'Missing title' });
+
+  const mutation = `
+    mutation productCreate($input: ProductInput!) {
+      productCreate(input: $input) {
+        product { id title handle onlineStorePreviewUrl }
+        userErrors { field message }
+      }
+    }`;
+
+  const variables = {
+    input: {
+      title:           String(title).slice(0, 255),
+      descriptionHtml: descriptionHtml ? String(descriptionHtml).slice(0, 5000) : undefined,
+      tags:            Array.isArray(tags) ? tags.slice(0, 20).map(String) : undefined,
+      productType:     productType ? String(productType).slice(0, 80) : undefined,
+      vendor:          vendor ? String(vendor).slice(0, 80) : 'Manus Trends',
+      status:          'DRAFT',
+      variants:        price ? [{ price: String(price) }] : undefined,
+      metafields:      sourceUrl ? [{
+        namespace: 'manus',
+        key:       'source_url',
+        type:      'single_line_text_field',
+        value:     String(sourceUrl).slice(0, 500),
+      }] : undefined,
+    },
+  };
+
+  try {
+    const url = `https://${shopDomain.replace(/^https?:\/\//, '')}/admin/api/2024-10/graphql.json`;
+    const result = await httpsRequest('POST', url, {
+      'X-Shopify-Access-Token': accessToken,
+    }, { query: mutation, variables });
+
+    if (result.status >= 400) {
+      return res.status(result.status).json({ error: 'Shopify request failed', detail: result.body });
+    }
+    const data   = result.body?.data?.productCreate;
+    const errors = data?.userErrors || [];
+    if (errors.length > 0) {
+      return res.status(422).json({ error: 'Shopify validation failed', errors });
+    }
+    const product = data?.product;
+    if (!product) {
+      return res.status(502).json({ error: 'Empty Shopify response', detail: result.body });
+    }
+
+    const gid    = product.id || '';
+    const numeric = gid.split('/').pop();
+    const adminUrl = `https://${shopDomain.replace(/^https?:\/\//, '')}/admin/products/${numeric}`;
+
+    res.json({
+      ok:         true,
+      productId:  product.id,
+      handle:     product.handle,
+      adminUrl,
+      previewUrl: product.onlineStorePreviewUrl || null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/shopify/health', async (req, res) => {
+  const shopDomain  = req.get('x-shopify-shop')  || process.env.SHOPIFY_SHOP_DOMAIN;
+  const accessToken = req.get('x-shopify-token') || process.env.SHOPIFY_ADMIN_TOKEN;
+  if (!shopDomain || !accessToken) return res.status(503).json({ ok: false, error: 'not configured' });
+
+  try {
+    const url = `https://${shopDomain.replace(/^https?:\/\//, '')}/admin/api/2024-10/graphql.json`;
+    const result = await httpsRequest('POST', url, {
+      'X-Shopify-Access-Token': accessToken,
+    }, { query: '{ shop { name myshopifyDomain } }' });
+    if (result.status >= 400) return res.status(result.status).json({ ok: false, detail: result.body });
+    const shop = result.body?.data?.shop;
+    if (!shop) return res.status(502).json({ ok: false, detail: result.body });
+    res.json({ ok: true, shop });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ─── Reddit Trends (proxy) ────────────────────────────────────────────────────
 
 app.get('/api/reddit-trends', async (req, res) => {
