@@ -25,7 +25,8 @@ export interface Cluster {
   signals: SourceSignal[];
 }
 
-export function normalize(name: string): string[] {
+export function normalize(name: string | undefined | null): string[] {
+  if (typeof name !== 'string' || !name) return [];
   return name
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')

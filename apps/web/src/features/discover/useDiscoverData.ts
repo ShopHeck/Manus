@@ -66,6 +66,7 @@ export function useDiscoverData(filters: DiscoverFilters) {
 
     if (pinterest.data?.trends) {
       pinterest.data.trends.slice(0, 25).forEach(t => {
+        if (!t || typeof t.keyword !== 'string' || !t.keyword) return;
         signals.push({
           source: 'pinterest',
           name:   t.keyword,
@@ -77,6 +78,7 @@ export function useDiscoverData(filters: DiscoverFilters) {
 
     if (google.data?.trends) {
       google.data.trends.slice(0, 25).forEach(t => {
+        if (!t || typeof t.keyword !== 'string' || !t.keyword) return;
         signals.push({
           source: 'google',
           name:   t.keyword,
@@ -88,14 +90,15 @@ export function useDiscoverData(filters: DiscoverFilters) {
 
     if (tiktok.data?.videos) {
       tiktok.data.videos.forEach(v => {
-        const sig = Math.min(100, Math.log10(Math.max(1, v.plays + v.likes * 5)) * 14);
+        if (!v || typeof v.caption !== 'string') return;
+        const sig = Math.min(100, Math.log10(Math.max(1, (v.plays || 0) + (v.likes || 0) * 5)) * 14);
         signals.push({
           source:    'tiktok',
-          name:      v.caption.slice(0, 80),
+          name:      v.caption.slice(0, 80) || 'TikTok trend',
           signal:    sig,
           url:       v.url,
           thumbnail: v.thumbnail,
-          tags:      v.hashtags?.slice(0, 3),
+          tags:      Array.isArray(v.hashtags) ? v.hashtags.slice(0, 3) : undefined,
           firstSeen: v.createdAt ? new Date(v.createdAt * 1000).toISOString().slice(0, 10) : undefined,
         });
       });

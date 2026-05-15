@@ -48,7 +48,7 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
           <img src={product.imageUrl} alt={product.name} className={styles.image} onError={() => setImgError(true)} />
         ) : (
           <div className={styles.imageFallback} data-category={product.category}>
-            <CategoryIcon category={product.category} size={48} strokeWidth={1.5} />
+            <CategoryIcon category={product.category} size={64} strokeWidth={1.25} />
           </div>
         )}
       </div>
