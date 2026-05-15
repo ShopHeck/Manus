@@ -69,3 +69,30 @@
 
 .input::placeholder { color: var(--text-4); }
 .input:focus { border-color: var(--accent); }
+
+.testRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.testResult {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-caption);
+  color: var(--text-3);
+}
+
+.testResult[data-ok='true']  { color: var(--success); }
+.testResult[data-ok='false'] { color: var(--danger); }
+
+.spin {
+  animation: spin 800ms linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

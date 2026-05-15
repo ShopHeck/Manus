@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { TrendingUp, TrendingDown, Minus, Star, ExternalLink } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Star, ExternalLink, Sparkles, CookingPot, HeartPulse, Cpu, PawPrint, Shirt, Dumbbell, House, Package } from 'lucide-react';
 import type { TrendProduct } from '@/types';
 import { Badge } from '@/components/Badge';
 import { Score } from '@/components/Score';
@@ -46,10 +46,8 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
         {product.imageUrl && !imgError ? (
           <img src={product.imageUrl} alt={product.name} className={styles.image} onError={() => setImgError(true)} />
         ) : (
-          <div className={styles.imageFallback}>
-            <span className={styles.imageFallbackText}>
-              {product.name.slice(0, 2).toUpperCase()}
-            </span>
+          <div className={styles.imageFallback} data-category={product.category}>
+            <CategoryIcon category={product.category} size={48} strokeWidth={1.5} />
           </div>
         )}
       </div>
@@ -130,6 +128,21 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
       </div>
     </div>
   );
+}
+
+function CategoryIcon({ category, ...props }: { category: string; size?: number; strokeWidth?: number }) {
+  const map: Record<string, typeof Sparkles> = {
+    Beauty: Sparkles,
+    Kitchen: CookingPot,
+    Health: HeartPulse,
+    Electronics: Cpu,
+    Pets: PawPrint,
+    Fashion: Shirt,
+    Sports: Dumbbell,
+    Home: House,
+  };
+  const Icon = map[category] ?? Package;
+  return <Icon {...props} />;
 }
 
 function RankDelta({ delta }: { delta: number }) {

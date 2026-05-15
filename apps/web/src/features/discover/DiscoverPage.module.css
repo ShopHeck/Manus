@@ -45,11 +45,12 @@
   flex-shrink: 0;
 }
 
-.dot[data-state='ok']      { background: var(--success); }
-.dot[data-state='error']   { background: var(--danger); }
+.dot[data-state='ok']           { background: var(--success); }
+.dot[data-state='error']        { background: var(--danger); }
+.dot[data-state='unconfigured'] { background: var(--text-4); }
 .dot[data-state='loading'] {
   background: var(--warning);
-  animation: pulse 1.5s ease-in-out infinite;
+  animation: pulse 1.5s var(--ease-out-expo) infinite;
 }
 
 @keyframes pulse {

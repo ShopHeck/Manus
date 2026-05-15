@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { RedditPost } from '@/types';
 import { redditScoreToSignal } from '@/lib/scoring';
+import { storage } from '@/lib/storage';
 
 const ECOM_SUBS = [
   'TikTokMadeMeBuyIt',
@@ -18,7 +19,10 @@ interface RedditResult {
 }
 
 async function fetchSubreddit(sub: string, limit = 25): Promise<RedditResult> {
-  const url = `https://www.reddit.com/r/${sub}/top.json?t=week&limit=${limit}&raw_json=1`;
+  const backendUrl = storage.get('backendUrl', '');
+  const url = backendUrl
+    ? `${backendUrl}/api/reddit-trends?sub=${encodeURIComponent(sub)}&limit=${limit}`
+    : `https://www.reddit.com/r/${sub}/top.json?t=week&limit=${limit}&raw_json=1`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Reddit ${sub}: ${res.status}`);
   const json = await res.json() as { data?: { children?: { data: unknown }[] } };

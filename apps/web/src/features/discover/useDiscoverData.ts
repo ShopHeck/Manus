@@ -2,7 +2,9 @@ import { useMemo } from 'react';
 import { useRedditTrends } from '@/data/sources/reddit';
 import { useAmazonMovers } from '@/data/sources/amazon';
 import { usePinterestTrends } from '@/data/sources/pinterest';
+import { useTikTokTrends } from '@/data/sources/tiktok';
 import { SAMPLE_PRODUCTS } from '@/data/sample';
+import { storage } from '@/lib/storage';
 import type { TrendProduct, DiscoverFilters, RedditPost } from '@/types';
 import { computeViralScore } from '@/lib/scoring';
 import { computeSaturation } from '@/lib/saturation';
@@ -48,9 +50,13 @@ function inferCategory(subreddit: string): string {
 }
 
 export function useDiscoverData(filters: DiscoverFilters) {
-  const reddit  = useRedditTrends();
-  const amazon  = useAmazonMovers();
+  const reddit    = useRedditTrends();
+  const amazon    = useAmazonMovers();
   const pinterest = usePinterestTrends();
+  const tiktok    = useTikTokTrends();
+
+  const hasBackend = !!storage.get('backendUrl', '');
+  const hasApify   = !!storage.get('apifyApiKey', '');
 
   const liveProducts = useMemo(() => {
     const products: TrendProduct[] = [];
@@ -111,9 +117,10 @@ export function useDiscoverData(filters: DiscoverFilters) {
     isLoading: reddit.isLoading,
     isError:   reddit.isError,
     sources: {
-      reddit:    { ok: !reddit.isError,    loading: reddit.isLoading    },
-      amazon:    { ok: !amazon.isError,    loading: amazon.isLoading    },
-      pinterest: { ok: !pinterest.isError, loading: pinterest.isLoading },
+      reddit:    { ok: !reddit.isError    && reddit.isSuccess,    loading: reddit.isLoading,    configured: true },
+      amazon:    { ok: !amazon.isError    && amazon.isSuccess,    loading: amazon.isLoading,    configured: hasBackend },
+      pinterest: { ok: !pinterest.isError && pinterest.isSuccess, loading: pinterest.isLoading, configured: hasBackend },
+      tiktok:    { ok: !tiktok.isError    && tiktok.isSuccess,    loading: tiktok.isLoading,    configured: hasBackend && hasApify },
     },
   };
 }

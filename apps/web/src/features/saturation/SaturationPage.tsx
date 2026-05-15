@@ -6,7 +6,7 @@ export default function SaturationPage() {
   return (
     <div className={styles.root}>
       <h1 className={styles.title}>Saturation Map</h1>
-      <p className={styles.subtitle}>Viral Score vs. Opportunity (inverse saturation) — top-right is the goldmine</p>
+      <p className={styles.subtitle}>Viral Score vs. Opportunity (inverse saturation). Top-right is the goldmine.</p>
 
       <div className={styles.matrix}>
         <div className={styles.matrixYLabel}>← High Opportunity</div>
