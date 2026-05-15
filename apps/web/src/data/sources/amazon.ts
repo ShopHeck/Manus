@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { amazonRankToSignal } from '@/lib/scoring';
+import { storage } from '@/lib/storage';
 
 interface AmazonProduct {
   name:   string;
@@ -16,7 +17,7 @@ interface AmazonMoversResult {
 }
 
 async function fetchAmazonMovers(category = 'beauty'): Promise<AmazonMoversResult> {
-  const backendUrl = localStorage.getItem('trendz_backendUrl') ?? '';
+  const backendUrl = storage.get('backendUrl', '');
   if (!backendUrl) return { category, products: [], signalScore: 0 };
 
   const res = await fetch(`${backendUrl}/api/amazon-movers?category=${category}`);
@@ -37,6 +38,6 @@ export function useAmazonMovers(category = 'beauty') {
     queryKey: ['amazon-movers', category],
     queryFn:  () => fetchAmazonMovers(category),
     staleTime: 30 * 60 * 1000,
-    enabled:  !!localStorage.getItem('trendz_backendUrl'),
+    enabled:  !!storage.get('backendUrl', ''),
   });
 }

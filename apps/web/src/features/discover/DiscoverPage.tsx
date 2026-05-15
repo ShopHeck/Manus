@@ -11,6 +11,12 @@ export default function DiscoverPage() {
   const [filters, setFilters] = useState(defaultFilters);
   const [selected, setSelected] = useState<TrendProduct | null>(null);
   const { products, isLoading, sources } = useDiscoverData(filters);
+  const sourceList = [
+    { id: 'reddit',    label: 'Reddit',    s: sources.reddit },
+    { id: 'tiktok',    label: 'TikTok',    s: sources.tiktok },
+    { id: 'pinterest', label: 'Pinterest', s: sources.pinterest },
+    { id: 'amazon',    label: 'Amazon',    s: sources.amazon },
+  ];
 
   return (
     <div className={styles.root}>
@@ -22,9 +28,9 @@ export default function DiscoverPage() {
           </p>
         </div>
         <div className={styles.sourceStatus}>
-          <SourceDot label="Reddit"    ok={sources.reddit.ok}    loading={sources.reddit.loading}    />
-          <SourceDot label="Amazon"    ok={sources.amazon.ok}    loading={sources.amazon.loading}    />
-          <SourceDot label="Pinterest" ok={sources.pinterest.ok} loading={sources.pinterest.loading} />
+          {sourceList.map(({ id, label, s }) => (
+            <SourceDot key={id} label={label} ok={s.ok} loading={s.loading} configured={s.configured} />
+          ))}
         </div>
       </div>
 
@@ -67,13 +73,12 @@ export default function DiscoverPage() {
   );
 }
 
-function SourceDot({ label, ok, loading }: { label: string; ok: boolean; loading: boolean }) {
+function SourceDot({ label, ok, loading, configured }: { label: string; ok: boolean; loading: boolean; configured: boolean }) {
+  const state = !configured ? 'unconfigured' : loading ? 'loading' : ok ? 'ok' : 'error';
+  const stateText = !configured ? 'not configured' : loading ? 'loading' : ok ? 'live' : 'error';
   return (
-    <div className={styles.sourceDot} title={`${label}: ${loading ? 'loading' : ok ? 'live' : 'unavailable'}`}>
-      <span
-        className={styles.dot}
-        data-state={loading ? 'loading' : ok ? 'ok' : 'error'}
-      />
+    <div className={styles.sourceDot} title={`${label}: ${stateText}`}>
+      <span className={styles.dot} data-state={state} />
       <span className={styles.dotLabel}>{label}</span>
     </div>
   );

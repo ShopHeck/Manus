@@ -73,7 +73,7 @@
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-3);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .tbl {
@@ -92,10 +92,11 @@
 }
 
 .tbl td {
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-4);
   border-bottom: 1px solid var(--border);
   font-size: var(--text-body);
   color: var(--text-1);
+  vertical-align: middle;
 }
 
 .tbl tr:last-child td { border-bottom: none; }

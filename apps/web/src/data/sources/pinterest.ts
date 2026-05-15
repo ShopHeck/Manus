@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { storage } from '@/lib/storage';
 
 interface PinterestTrend {
   keyword:    string;
@@ -13,7 +14,7 @@ interface PinterestResult {
 }
 
 async function fetchPinterestTrends(region = 'US'): Promise<PinterestResult> {
-  const backendUrl = localStorage.getItem('trendz_backendUrl') ?? '';
+  const backendUrl = storage.get('backendUrl', '');
   if (!backendUrl) return { region, trends: [], signalScore: 0 };
 
   const res = await fetch(`${backendUrl}/api/pinterest-trends?region=${region}&limit=50`);
@@ -30,6 +31,6 @@ export function usePinterestTrends(region = 'US') {
     queryKey: ['pinterest-trends', region],
     queryFn:  () => fetchPinterestTrends(region),
     staleTime: 60 * 60 * 1000,
-    enabled:  !!localStorage.getItem('trendz_backendUrl'),
+    enabled:  !!storage.get('backendUrl', ''),
   });
 }

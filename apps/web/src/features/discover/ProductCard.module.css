@@ -61,15 +61,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--bg-overlay) 0%, var(--bg-active) 100%);
+  background: var(--cat-bg, var(--bg-overlay));
+  color: var(--cat-fg, var(--text-3));
 }
 
-.imageFallbackText {
-  font-size: var(--text-h3);
-  font-weight: var(--weight-bold);
-  color: var(--text-3);
-  letter-spacing: 0.05em;
-}
+.imageFallback[data-category='Beauty']      { --cat-bg: oklch(0.32 0.04 30);  --cat-fg: oklch(0.86 0.06 30); }
+.imageFallback[data-category='Kitchen']     { --cat-bg: oklch(0.30 0.04 70);  --cat-fg: oklch(0.84 0.06 70); }
+.imageFallback[data-category='Health']      { --cat-bg: oklch(0.30 0.04 150); --cat-fg: oklch(0.84 0.06 150); }
+.imageFallback[data-category='Electronics'] { --cat-bg: oklch(0.30 0.04 240); --cat-fg: oklch(0.84 0.06 240); }
+.imageFallback[data-category='Pets']        { --cat-bg: oklch(0.30 0.04 50);  --cat-fg: oklch(0.84 0.06 50); }
+.imageFallback[data-category='Fashion']     { --cat-bg: oklch(0.30 0.04 340); --cat-fg: oklch(0.86 0.06 340); }
+.imageFallback[data-category='Sports']      { --cat-bg: oklch(0.30 0.04 200); --cat-fg: oklch(0.84 0.06 200); }
+.imageFallback[data-category='Home']        { --cat-bg: oklch(0.30 0.04 100); --cat-fg: oklch(0.84 0.06 100); }
 
 /* Content */
 .content {
@@ -121,8 +124,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   flex: 1;
+  min-width: 0;
 }
 
 .scoreDivider {

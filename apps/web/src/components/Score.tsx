@@ -26,7 +26,11 @@ export function Score({ value, size = 'md', label, showRing = true }: ScoreProps
   const offset = circumference - (clamped / 100) * circumference;
 
   return (
-    <div className={`${styles.root} ${styles[size]}`} title={label}>
+    <div
+      className={`${styles.root} ${styles[size]}`}
+      style={showRing ? { width: dim, height: dim } : undefined}
+      title={label}
+    >
       {showRing && (
         <svg
           width={dim}

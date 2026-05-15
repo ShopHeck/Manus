@@ -19,5 +19,5 @@
 }
 
 .sm .value { font-size: var(--text-caption); }
-.md .value { font-size: var(--text-micro); }
-.lg .value { font-size: var(--text-body); }
+.md .value { font-size: var(--text-body); }
+.lg .value { font-size: var(--text-h4); }

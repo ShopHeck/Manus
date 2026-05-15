@@ -51,13 +51,16 @@ function httpsGet(url, headers = {}) {
 
 // ─── Root + Health ────────────────────────────────────────────────────────────
 
-app.get('/api/health', (_req, res) => {
+app.get('/api/health', (req, res) => {
+  const apifyHeader = req.get('x-apify-token');
   res.json({
     ok: true,
     sources: {
+      reddit:    true,    // backend proxy available
       pinterest: !!process.env.PINTEREST_ACCESS_TOKEN,
       google:    true,    // no key needed
       amazon:    true,    // scraping
+      tiktok:    !!apifyHeader || !!process.env.APIFY_API_TOKEN,
     },
   });
 });
@@ -172,6 +175,81 @@ app.get('/api/amazon-movers', async (req, res) => {
   }
 });
 
+// ─── TikTok (Apify) ───────────────────────────────────────────────────────────
+
+function httpsRequest(method, url, headers = {}, body = null) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const opts = {
+      method,
+      hostname: u.hostname,
+      path:     u.pathname + u.search,
+      headers:  {
+        'User-Agent':   'TRENDZ/1.0',
+        'Content-Type': 'application/json',
+        ...headers,
+      },
+    };
+    const req = https.request(opts, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
+        catch { resolve({ status: res.statusCode, body: data }); }
+      });
+    });
+    req.on('error', reject);
+    if (body) req.write(typeof body === 'string' ? body : JSON.stringify(body));
+    req.end();
+  });
+}
+
+app.get('/api/tiktok-trends', async (req, res) => {
+  const token = req.get('x-apify-token') || process.env.APIFY_API_TOKEN;
+  if (!token) {
+    return res.status(503).json({ error: 'Apify token not configured. Set it in Settings or APIFY_API_TOKEN env.' });
+  }
+
+  const keyword = String(req.query.keyword || 'tiktokmademebuyit').slice(0, 80);
+  const limit   = Math.min(parseInt(req.query.limit, 10) || 20, 50);
+
+  try {
+    const actor = 'clockworks~tiktok-scraper';
+    const url   = `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${encodeURIComponent(token)}&timeout=60`;
+    const input = {
+      hashtags:           [keyword.replace(/^#/, '')],
+      resultsPerPage:     limit,
+      shouldDownloadVideos: false,
+      shouldDownloadCovers: false,
+      proxyConfiguration: { useApifyProxy: true },
+    };
+    const result = await httpsRequest('POST', url, {}, input);
+
+    if (result.status !== 200 && result.status !== 201) {
+      return res.status(result.status || 502).json({ error: 'Apify request failed', detail: result.body });
+    }
+
+    const items = Array.isArray(result.body) ? result.body : [];
+    const videos = items.slice(0, limit).map(it => ({
+      id:        String(it.id ?? it.aweme_id ?? ''),
+      caption:   String(it.text ?? it.desc ?? ''),
+      plays:     Number(it.playCount ?? it.play_count ?? 0),
+      likes:     Number(it.diggCount ?? it.digg_count ?? 0),
+      shares:    Number(it.shareCount ?? it.share_count ?? 0),
+      comments:  Number(it.commentCount ?? it.comment_count ?? 0),
+      hashtags:  (it.hashtags || []).map(h => h.name || h.title || h).filter(Boolean),
+      url:       String(it.webVideoUrl ?? it.video_url ?? ''),
+      thumbnail: it.videoMeta?.coverUrl ?? it.cover ?? null,
+      author:    String(it.authorMeta?.name ?? it.author?.uniqueId ?? ''),
+      createdAt: Number(it.createTimeISO ? Date.parse(it.createTimeISO) / 1000 : it.createTime || 0),
+    })).filter(v => v.id);
+
+    res.json({ source: 'tiktok', keyword, videos });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Reddit Trends (proxy) ────────────────────────────────────────────────────
 
 app.get('/api/reddit-trends', async (req, res) => {
@@ -208,6 +286,7 @@ app.listen(PORT, () => {
     'Google Trends',
     'Amazon Movers',
     'Reddit (proxy)',
+    process.env.APIFY_API_TOKEN && 'TikTok (Apify)',
   ].filter(Boolean);
   console.log(`TRENDZ backend listening on http://localhost:${PORT}`);
   console.log(`Active sources: ${active.join(', ')}`);
