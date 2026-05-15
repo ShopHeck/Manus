@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useSnapshotStore } from '@/lib/snapshots';
 import { useRedditTrends } from '@/data/sources/reddit';
 import { useAmazonMovers } from '@/data/sources/amazon';
 import { usePinterestTrends } from '@/data/sources/pinterest';
@@ -113,6 +114,11 @@ export function useDiscoverData(filters: DiscoverFilters) {
 
     return clusters.slice(0, 50).map((c, i) => clusterToProduct(c, i + 1));
   }, [reddit.data, amazon.data, pinterest.data, google.data, tiktok.data]);
+
+  const recordMany = useSnapshotStore(s => s.recordMany);
+  useEffect(() => {
+    if (liveProducts.length > 0) recordMany(liveProducts);
+  }, [liveProducts, recordMany]);
 
   const filtered = useMemo(() => {
     let list = liveProducts;
