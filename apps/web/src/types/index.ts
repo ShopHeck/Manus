@@ -53,6 +53,7 @@ export interface TrendProduct {
     reddit?:    string;
     tiktok?:    string;
     pinterest?: string;
+    google?:    string;
     amazon?:    string;
   };
 }

@@ -15,6 +15,7 @@ export default function DiscoverPage() {
     { id: 'reddit',    label: 'Reddit',    s: sources.reddit },
     { id: 'tiktok',    label: 'TikTok',    s: sources.tiktok },
     { id: 'pinterest', label: 'Pinterest', s: sources.pinterest },
+    { id: 'google',    label: 'Google',    s: sources.google },
     { id: 'amazon',    label: 'Amazon',    s: sources.amazon },
   ];
 
