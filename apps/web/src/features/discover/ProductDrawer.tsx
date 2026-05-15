@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Star, ExternalLink } from 'lucide-react';
+import { X, Star, ExternalLink, ShoppingBag, Loader2, Check } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import type { TrendProduct } from '@/types';
 import { Badge } from '@/components/Badge';
@@ -8,6 +8,7 @@ import { useWatchlistStore } from '@/features/watchlist/store';
 import { toast } from '@/components/Toast';
 import { computeMargin } from '@/lib/margin';
 import { defaultMarginInputs } from '@/lib/margin';
+import { launchToShopify, useLaunchStore } from '@/lib/shopifyLaunch';
 import styles from './ProductDrawer.module.css';
 
 interface ProductDrawerProps {
@@ -91,19 +92,56 @@ function DrawerContent({ product, tab, setTab, watched, onWatch, onClose }: {
 
       {/* Footer CTA */}
       <div className={styles.footer}>
-        <Button variant="primary" size="md" onClick={onWatch}>
+        <LaunchButton product={product} />
+        <Button variant="outline" size="md" onClick={onWatch}>
           <Star size={14} fill={watched ? 'currentColor' : 'none'} />
-          {watched ? 'Watching' : 'Add to Watchlist'}
+          {watched ? 'Watching' : 'Watch'}
         </Button>
         {Object.entries(product.urls).map(([src, url]) => url ? (
           <a key={src} href={url} target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="md">
+            <Button variant="ghost" size="md">
               <ExternalLink size={14} /> {src}
             </Button>
           </a>
         ) : null)}
       </div>
     </div>
+  );
+}
+
+function LaunchButton({ product }: { product: TrendProduct }) {
+  const launch = useLaunchStore(s => s.byProductId[product.id]);
+  const record = useLaunchStore(s => s.record);
+  const [busy, setBusy] = useState(false);
+
+  if (launch) {
+    return (
+      <a href={launch.adminUrl} target="_blank" rel="noopener noreferrer" className={styles.launchedLink}>
+        <Button variant="primary" size="md">
+          <Check size={14} /> In your store
+        </Button>
+      </a>
+    );
+  }
+
+  async function go() {
+    setBusy(true);
+    try {
+      const r = await launchToShopify(product);
+      record(r);
+      toast('Product created in Shopify', 'Saved as draft. Open the admin to publish.', 'success');
+    } catch (err) {
+      toast('Shopify launch failed', err instanceof Error ? err.message : 'Unknown error', 'danger');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Button variant="primary" size="md" onClick={go} disabled={busy}>
+      {busy ? <Loader2 size={14} className={styles.spin} /> : <ShoppingBag size={14} />}
+      {busy ? 'Launching…' : 'Launch in Shopify'}
+    </Button>
   );
 }
 

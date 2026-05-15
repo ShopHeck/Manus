@@ -260,3 +260,8 @@
 }
 
 .advancedToggle:hover { color: var(--text-1); }
+
+.spin { animation: drawerSpin 800ms linear infinite; }
+@keyframes drawerSpin { to { transform: rotate(360deg); } }
+
+.launchedLink { text-decoration: none; display: inline-flex; }
