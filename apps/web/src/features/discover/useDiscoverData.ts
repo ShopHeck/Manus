@@ -101,10 +101,6 @@ export function useDiscoverData(filters: DiscoverFilters) {
       });
     }
 
-    if (signals.length < 6) {
-      return SAMPLE_PRODUCTS;
-    }
-
     const clusters = clusterSignals(signals);
     clusters.sort((a, b) => {
       const totalA = a.signals.reduce((s, x) => s + x.signal, 0) + a.signals.length * 8;
@@ -112,7 +108,19 @@ export function useDiscoverData(filters: DiscoverFilters) {
       return totalB - totalA;
     });
 
-    return clusters.slice(0, 50).map((c, i) => clusterToProduct(c, i + 1));
+    const live = clusters.slice(0, 50).map((c, i) => clusterToProduct(c, i + 1));
+
+    // Always show something. If the live pipeline produced too little signal
+    // to be useful (no sources configured, all queries failed, every signal
+    // tokenized down to nothing), fall back to / supplement with samples so
+    // the UI is never empty.
+    if (live.length === 0) return SAMPLE_PRODUCTS;
+    if (live.length < 6) {
+      const seenNames = new Set(live.map(p => p.name.toLowerCase()));
+      const filler = SAMPLE_PRODUCTS.filter(p => !seenNames.has(p.name.toLowerCase()));
+      return [...live, ...filler].slice(0, Math.max(8, live.length));
+    }
+    return live;
   }, [reddit.data, amazon.data, pinterest.data, google.data, tiktok.data]);
 
   const recordMany = useSnapshotStore(s => s.recordMany);
