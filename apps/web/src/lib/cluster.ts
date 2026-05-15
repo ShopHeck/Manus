@@ -105,7 +105,10 @@ export function clusterToProduct(cluster: Cluster, rank: number): TrendProduct {
   const category = cluster.signals.find(s => s.category)?.category ?? 'General';
 
   const tags = Array.from(new Set(
-    cluster.signals.flatMap(s => s.tags ?? []).map(t => t.toLowerCase())
+    cluster.signals
+      .flatMap(s => s.tags ?? [])
+      .filter((t): t is string => typeof t === 'string' && t.length > 0)
+      .map(t => t.toLowerCase())
   )).slice(0, 5);
 
   const urls: TrendProduct['urls'] = {};
@@ -115,16 +118,19 @@ export function clusterToProduct(cluster: Cluster, rank: number): TrendProduct {
 
   const thumbnail = cluster.signals.find(s => s.thumbnail)?.thumbnail ?? null;
 
+  const safeName = typeof cluster.canonicalName === 'string' ? cluster.canonicalName : '';
+  const safeCategory = typeof category === 'string' && category ? category : 'General';
+
   return {
-    id:         `cluster-${cluster.canonicalName.toLowerCase().replace(/\s+/g, '-').slice(0, 40)}`,
-    name:       cluster.canonicalName.slice(0, 80),
-    category,
+    id:         `cluster-${safeName.toLowerCase().replace(/\s+/g, '-').slice(0, 40)}`,
+    name:       safeName.slice(0, 80),
+    category:   safeCategory,
     imageUrl:   thumbnail,
     tags,
     sources,
     viralScore,
     saturation,
-    margin:     defaultMarginInputs(category.toLowerCase(), 29.99),
+    margin:     defaultMarginInputs(safeCategory.toLowerCase(), 29.99),
     rank,
     rankDelta:  0,
     firstSeen,

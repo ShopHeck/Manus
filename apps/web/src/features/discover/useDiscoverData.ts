@@ -38,6 +38,7 @@ export function useDiscoverData(filters: DiscoverFilters) {
     if (reddit.data) {
       reddit.data.forEach(result => {
         result.posts.slice(0, 8).forEach(post => {
+          if (typeof post?.title !== 'string' || typeof post?.subreddit !== 'string') return;
           signals.push({
             source:    'reddit',
             name:      post.title.slice(0, 80),
@@ -53,13 +54,17 @@ export function useDiscoverData(filters: DiscoverFilters) {
     }
 
     if (amazon.data?.products) {
+      const amazonCategory = typeof amazon.data.category === 'string'
+        ? capitalize(amazon.data.category)
+        : 'General';
       amazon.data.products.forEach(p => {
+        if (typeof p?.name !== 'string') return;
         signals.push({
           source:   'amazon',
           name:     p.name,
           signal:   p.signal,
           url:      p.url,
-          category: capitalize(amazon.data!.category),
+          category: amazonCategory,
         });
       });
     }
@@ -79,11 +84,17 @@ export function useDiscoverData(filters: DiscoverFilters) {
     if (google.data?.trends) {
       google.data.trends.slice(0, 25).forEach(t => {
         if (!t || typeof t.keyword !== 'string' || !t.keyword) return;
+        const relatedTags = Array.isArray(t.relatedQueries)
+          ? t.relatedQueries
+              .map(q => typeof q === 'string' ? q : (q as { query?: string } | null)?.query)
+              .filter((q): q is string => typeof q === 'string' && q.length > 0)
+              .slice(0, 2)
+          : [];
         signals.push({
           source: 'google',
           name:   t.keyword,
           signal: 60, // Google daily trends don't ship volume, treat as floor signal
-          tags:   t.relatedQueries?.slice(0, 2),
+          tags:   relatedTags,
         });
       });
     }
@@ -92,13 +103,23 @@ export function useDiscoverData(filters: DiscoverFilters) {
       tiktok.data.videos.forEach(v => {
         if (!v || typeof v.caption !== 'string') return;
         const sig = Math.min(100, Math.log10(Math.max(1, (v.plays || 0) + (v.likes || 0) * 5)) * 14);
+        const hashtagTags = Array.isArray(v.hashtags)
+          ? v.hashtags
+              .map(h => {
+                if (typeof h === 'string') return h;
+                const obj = h as { name?: string; title?: string } | null;
+                return obj?.name ?? obj?.title;
+              })
+              .filter((h): h is string => typeof h === 'string' && h.length > 0)
+              .slice(0, 3)
+          : undefined;
         signals.push({
           source:    'tiktok',
           name:      v.caption.slice(0, 80) || 'TikTok trend',
           signal:    sig,
           url:       v.url,
           thumbnail: v.thumbnail,
-          tags:      Array.isArray(v.hashtags) ? v.hashtags.slice(0, 3) : undefined,
+          tags:      hashtagTags,
           firstSeen: v.createdAt ? new Date(v.createdAt * 1000).toISOString().slice(0, 10) : undefined,
         });
       });
