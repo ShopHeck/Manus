@@ -24,14 +24,15 @@ const GENERIC_HASHTAGS = new Set([
 
 function extractTikTokProductName(caption: string, hashtags: string[]): string {
   const specific = hashtags
-    .map(h => h.replace(/^#/, '').toLowerCase())
-    .filter(h => h.length > 3 && !GENERIC_HASHTAGS.has(h));
+    .map(h => h.replace(/^#/, ''))
+    .filter(h => h.length > 3 && !GENERIC_HASHTAGS.has(h.toLowerCase()));
 
   if (specific.length > 0) {
     const best = specific.sort((a, b) => b.length - a.length)[0];
     return best
-      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')  // split camelCase before lowercasing
       .replace(/_/g, ' ')
+      .toLowerCase()
       .replace(/\b\w/g, c => c.toUpperCase())
       .slice(0, 80);
   }
