@@ -3,11 +3,12 @@ import { amazonRankToSignal } from '@/lib/scoring';
 import { storage } from '@/lib/storage';
 
 interface AmazonProduct {
-  name:   string;
-  asin:   string;
-  url:    string;
-  rank:   number;
-  signal: number;
+  name:     string;
+  asin:     string;
+  url:      string;
+  rank:     number;
+  signal:   number;
+  imageUrl: string | null;
 }
 
 interface AmazonMoversResult {
@@ -22,11 +23,12 @@ async function fetchAmazonMovers(category = 'beauty'): Promise<AmazonMoversResul
 
   const res = await fetch(`${backendUrl}/api/amazon-movers?category=${category}`);
   if (!res.ok) throw new Error(`Amazon movers: ${res.status}`);
-  const json = await res.json() as { products?: { name: string; asin: string; url: string; rank: number }[] };
+  const json = await res.json() as { products?: { name: string; asin: string; url: string; rank: number; imageUrl?: string | null }[] };
 
   const products: AmazonProduct[] = (json.products ?? []).map(p => ({
     ...p,
-    signal: amazonRankToSignal(p.rank),
+    signal:   amazonRankToSignal(p.rank),
+    imageUrl: p.imageUrl ?? null,
   }));
 
   const avg = products.reduce((a, p) => a + p.signal, 0) / (products.length || 1);
