@@ -8,7 +8,7 @@ export const SAMPLE_PRODUCTS: TrendProduct[] = [
     id: 'sp-001',
     name: 'Gua Sha Facial Tool',
     category: 'Beauty',
-    imageUrl: 'https://picsum.photos/seed/gua-sha/400/300',
+    imageUrl: 'https://source.unsplash.com/featured/400x300/?gua-sha,jade-roller,skincare',
     tags: ['skincare', 'wellness', 'tiktok-viral'],
     sources: [
       { id: 'tiktok',  label: 'TT' },
@@ -26,7 +26,7 @@ export const SAMPLE_PRODUCTS: TrendProduct[] = [
     id: 'sp-002',
     name: 'LED Light Therapy Mask',
     category: 'Beauty',
-    imageUrl: 'https://picsum.photos/seed/led-mask/400/300',
+    imageUrl: 'https://source.unsplash.com/featured/400x300/?led-mask,light-therapy,beauty',
     tags: ['led-therapy', 'anti-aging', 'skincare'],
     sources: [
       { id: 'tiktok',  label: 'TT' },
@@ -44,7 +44,7 @@ export const SAMPLE_PRODUCTS: TrendProduct[] = [
     id: 'sp-003',
     name: 'Portable Blender Bottle',
     category: 'Kitchen',
-    imageUrl: 'https://picsum.photos/seed/blender-bottle/400/300',
+    imageUrl: 'https://source.unsplash.com/featured/400x300/?blender,smoothie,portable',
     tags: ['smoothie', 'fitness', 'portable'],
     sources: [
       { id: 'reddit',  label: 'R' },
@@ -62,7 +62,7 @@ export const SAMPLE_PRODUCTS: TrendProduct[] = [
     id: 'sp-004',
     name: 'Stanley Cup Dupe Tumbler',
     category: 'Kitchen',
-    imageUrl: 'https://picsum.photos/seed/tumbler/400/300',
+    imageUrl: 'https://source.unsplash.com/featured/400x300/?tumbler,water-bottle,hydration',
     tags: ['tumbler', 'hydration', 'viral'],
     sources: [
       { id: 'tiktok',  label: 'TT'},
@@ -79,7 +79,7 @@ export const SAMPLE_PRODUCTS: TrendProduct[] = [
     id: 'sp-005',
     name: 'Posture Corrector Brace',
     category: 'Health',
-    imageUrl: 'https://picsum.photos/seed/posture-brace/400/300',
+    imageUrl: 'https://source.unsplash.com/featured/400x300/?posture,back,spine,health',
     tags: ['posture', 'back-pain', 'health'],
     sources: [
       { id: 'reddit',    label: 'R' },
@@ -97,7 +97,7 @@ export const SAMPLE_PRODUCTS: TrendProduct[] = [
     id: 'sp-006',
     name: 'Cat Water Fountain Filter',
     category: 'Pets',
-    imageUrl: 'https://picsum.photos/seed/cat-fountain/400/300',
+    imageUrl: 'https://source.unsplash.com/featured/400x300/?cat,water-fountain,pet',
     tags: ['pets', 'cats', 'subscription'],
     sources: [
       { id: 'reddit',  label: 'R' },
@@ -114,7 +114,7 @@ export const SAMPLE_PRODUCTS: TrendProduct[] = [
     id: 'sp-007',
     name: 'Acupressure Mat + Pillow Set',
     category: 'Health',
-    imageUrl: 'https://picsum.photos/seed/acupressure-mat/400/300',
+    imageUrl: 'https://source.unsplash.com/featured/400x300/?acupressure,wellness,mat',
     tags: ['wellness', 'stress-relief', 'sleep'],
     sources: [
       { id: 'pinterest', label: 'P' },
@@ -132,7 +132,7 @@ export const SAMPLE_PRODUCTS: TrendProduct[] = [
     id: 'sp-008',
     name: 'Mini Handheld Fan',
     category: 'Electronics',
-    imageUrl: 'https://picsum.photos/seed/handheld-fan/400/300',
+    imageUrl: 'https://source.unsplash.com/featured/400x300/?handheld-fan,portable-fan,usb',
     tags: ['summer', 'portable', 'usb'],
     sources: [
       { id: 'tiktok',  label: 'TT'},

@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useSnapshotStore } from '@/lib/snapshots';
 import { useRedditTrends } from '@/data/sources/reddit';
 import { useAmazonMovers } from '@/data/sources/amazon';
@@ -60,11 +61,12 @@ export function useDiscoverData(filters: DiscoverFilters) {
       amazon.data.products.forEach(p => {
         if (typeof p?.name !== 'string') return;
         signals.push({
-          source:   'amazon',
-          name:     p.name,
-          signal:   p.signal,
-          url:      p.url,
-          category: amazonCategory,
+          source:    'amazon',
+          name:      p.name,
+          signal:    p.signal,
+          url:       p.url,
+          thumbnail: p.imageUrl ?? null,
+          category:  amazonCategory,
         });
       });
     }
@@ -147,13 +149,47 @@ export function useDiscoverData(filters: DiscoverFilters) {
     return live;
   }, [reddit.data, amazon.data, pinterest.data, google.data, tiktok.data]);
 
+  // Resolve images for products that have no thumbnail from any source.
+  // Calls /api/image-search on the backend (requires Pexels or Unsplash key).
+  const productsWithoutImages = useMemo(
+    () => liveProducts.filter(p => !p.imageUrl),
+    [liveProducts],
+  );
+  const backendUrl = storage.get('backendUrl', '');
+  const imageResolutionKey = productsWithoutImages.map(p => p.id).join(',');
+
+  const { data: resolvedImages } = useQuery<Record<string, string | null>>({
+    queryKey: ['image-resolutions', imageResolutionKey],
+    queryFn: async () => {
+      if (!backendUrl || productsWithoutImages.length === 0) return {};
+      const entries = await Promise.all(
+        productsWithoutImages.map(p =>
+          fetch(`${backendUrl}/api/image-search?q=${encodeURIComponent(p.name)}`)
+            .then(r => r.json() as Promise<{ url: string | null }>)
+            .then(d => [p.id, d.url] as const)
+            .catch(() => [p.id, null] as const),
+        ),
+      );
+      return Object.fromEntries(entries);
+    },
+    enabled: productsWithoutImages.length > 0 && !!backendUrl,
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const products = useMemo(() => {
+    if (!resolvedImages || Object.keys(resolvedImages).length === 0) return liveProducts;
+    return liveProducts.map(p =>
+      p.imageUrl || !resolvedImages[p.id] ? p : { ...p, imageUrl: resolvedImages[p.id] },
+    );
+  }, [liveProducts, resolvedImages]);
+
   const recordMany = useSnapshotStore(s => s.recordMany);
   useEffect(() => {
-    if (liveProducts.length > 0) recordMany(liveProducts);
-  }, [liveProducts, recordMany]);
+    if (products.length > 0) recordMany(products);
+  }, [products, recordMany]);
 
   const filtered = useMemo(() => {
-    let list = liveProducts;
+    let list = products;
 
     if (filters.search) {
       const q = filters.search.toLowerCase();
@@ -185,7 +221,7 @@ export function useDiscoverData(filters: DiscoverFilters) {
     }
 
     return list;
-  }, [liveProducts, filters]);
+  }, [products, filters]);
 
   return {
     products: filtered,

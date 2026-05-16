@@ -162,11 +162,15 @@ app.get('/api/amazon-movers', async (req, res) => {
     const titleFallback = [...html.matchAll(/aria-label="([^"]{10,80})"/g)].map(m => m[1]);
     const names = nameMatches.length > 0 ? nameMatches : titleFallback.slice(0, 20);
 
+    // Extract Amazon CDN product thumbnail images from the page HTML
+    const imgMatches = [...html.matchAll(/https:\/\/m\.media-amazon\.com\/images\/I\/[A-Za-z0-9\-_+%.]+\._AC_[^"']{1,80}\.(?:jpg|png|webp)/g)].map(m => m[0]);
+
     const products = [...new Set(asinMatches)].slice(0, 20).map((asin, i) => ({
-      name: names[i] || `Product ${i + 1}`,
+      name:     names[i] || `Product ${i + 1}`,
       asin,
-      url:  `https://www.amazon.com/dp/${asin}`,
-      rank: i + 1,
+      url:      `https://www.amazon.com/dp/${asin}`,
+      rank:     i + 1,
+      imageUrl: imgMatches[i] ?? null,
     }));
 
     res.json({ source: 'amazon_movers', category, products });
@@ -248,6 +252,43 @@ app.get('/api/tiktok-trends', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ─── Image Search ─────────────────────────────────────────────────────────────
+// Returns a topically relevant product image URL using Pexels or Unsplash APIs.
+// Falls back gracefully if neither key is configured.
+
+app.get('/api/image-search', async (req, res) => {
+  const query = String(req.query.q || '').slice(0, 120).trim();
+  if (!query) return res.json({ url: null, source: 'none' });
+
+  const pexelsKey  = process.env.PEXELS_API_KEY;
+  const unsplashKey = process.env.UNSPLASH_ACCESS_KEY;
+
+  if (pexelsKey) {
+    try {
+      const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=3&orientation=landscape`;
+      const result = await httpsGet(url, { Authorization: pexelsKey });
+      const photo = result.body?.photos?.[0];
+      if (photo?.src?.medium) {
+        return res.json({ url: photo.src.medium, source: 'pexels' });
+      }
+    } catch (_) { /* fall through to next provider */ }
+  }
+
+  if (unsplashKey) {
+    try {
+      const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=landscape`;
+      const result = await httpsGet(url, { Authorization: `Client-ID ${unsplashKey}` });
+      const photo = result.body?.results?.[0];
+      if (photo?.urls?.regular) {
+        return res.json({ url: photo.urls.regular, source: 'unsplash' });
+      }
+    } catch (_) { /* fall through */ }
+  }
+
+  // No keys configured or all requests failed
+  res.json({ url: null, source: 'none' });
 });
 
 // ─── Shopify launch ───────────────────────────────────────────────────────────
