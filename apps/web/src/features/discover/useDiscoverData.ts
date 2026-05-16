@@ -12,6 +12,39 @@ import type { TrendProduct, DiscoverFilters } from '@/types';
 import { clusterSignals, clusterToProduct, type SourceSignal } from '@/lib/cluster';
 import { redditScoreToSignal } from '@/lib/scoring';
 
+const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+
+const GENERIC_HASHTAGS = new Set([
+  'tiktokmademebuyit','fyp','foryou','foryoupage','viral','trending',
+  'amazon','amazonfinds','tiktokshop','musthave','love','fypシ','fy',
+  'tiktok','new','amazing','cool','tiktokviral','repost','follow',
+  'like','share','video','watch','fypage','explore','goviral',
+  'foryourpage','xyzbca','blowup','blowthisup','recommended','omg',
+]);
+
+function extractTikTokProductName(caption: string, hashtags: string[]): string {
+  const specific = hashtags
+    .map(h => h.replace(/^#/, '').toLowerCase())
+    .filter(h => h.length > 3 && !GENERIC_HASHTAGS.has(h));
+
+  if (specific.length > 0) {
+    const best = specific.sort((a, b) => b.length - a.length)[0];
+    return best
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase())
+      .slice(0, 80);
+  }
+
+  const cleaned = caption
+    .replace(/#\w+/g, '')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return cleaned.slice(0, 80) || 'TikTok trend';
+}
+
 function inferCategory(subreddit: string): string {
   const lower = subreddit.toLowerCase();
   if (lower.includes('skincare') || lower.includes('makeup')) return 'Beauty';
@@ -102,10 +135,13 @@ export function useDiscoverData(filters: DiscoverFilters) {
     }
 
     if (tiktok.data?.videos) {
+      const cutoffSecs = (Date.now() - NINETY_DAYS_MS) / 1000;
       tiktok.data.videos.forEach(v => {
         if (!v || typeof v.caption !== 'string') return;
+        if (v.createdAt && v.createdAt < cutoffSecs) return;
+
         const sig = Math.min(100, Math.log10(Math.max(1, (v.plays || 0) + (v.likes || 0) * 5)) * 14);
-        const hashtagTags = Array.isArray(v.hashtags)
+        const hashtags = Array.isArray(v.hashtags)
           ? v.hashtags
               .map(h => {
                 if (typeof h === 'string') return h;
@@ -113,15 +149,21 @@ export function useDiscoverData(filters: DiscoverFilters) {
                 return obj?.name ?? obj?.title;
               })
               .filter((h): h is string => typeof h === 'string' && h.length > 0)
-              .slice(0, 3)
-          : undefined;
+          : [];
+
+        const name = extractTikTokProductName(v.caption, hashtags);
+        const hashtagTags = hashtags
+          .map(h => h.replace(/^#/, '').toLowerCase())
+          .filter(h => h.length > 3 && !GENERIC_HASHTAGS.has(h))
+          .slice(0, 3);
+
         signals.push({
           source:    'tiktok',
-          name:      v.caption.slice(0, 80) || 'TikTok trend',
+          name,
           signal:    sig,
           url:       v.url,
           thumbnail: v.thumbnail,
-          tags:      hashtagTags,
+          tags:      hashtagTags.length > 0 ? hashtagTags : undefined,
           firstSeen: v.createdAt ? new Date(v.createdAt * 1000).toISOString().slice(0, 10) : undefined,
         });
       });

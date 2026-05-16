@@ -56,11 +56,15 @@ app.get('/api/health', (req, res) => {
   res.json({
     ok: true,
     sources: {
-      reddit:    true,    // backend proxy available
-      pinterest: !!process.env.PINTEREST_ACCESS_TOKEN,
-      google:    true,    // no key needed
-      amazon:    true,    // scraping
-      tiktok:    !!apifyHeader || !!process.env.APIFY_API_TOKEN,
+      reddit:         true,
+      pinterest:      !!process.env.PINTEREST_ACCESS_TOKEN,
+      google:         true,
+      amazon:         true,
+      tiktok:         !!apifyHeader || !!process.env.APIFY_API_TOKEN,
+      aiCopy:         !!process.env.ANTHROPIC_API_KEY,
+      cjDropshipping: !!(process.env.CJDROPSHIPPING_EMAIL && process.env.CJDROPSHIPPING_PASSWORD),
+      aliExpress:     !!process.env.ALIEXPRESS_APP_KEY,
+      shopify:        true,
     },
   });
 });
@@ -99,9 +103,44 @@ app.get('/api/pinterest-trends', async (req, res) => {
 
 // ─── Google Trends ────────────────────────────────────────────────────────────
 
+function parseGoogleTrendsRSS(xml) {
+  const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)];
+  return items.map(m => {
+    const block = m[1];
+    const title = (
+      block.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/) ||
+      block.match(/<title>(.*?)<\/title>/)
+    )?.[1] || '';
+    const traffic = block.match(/<ht:approx_traffic>(.*?)<\/ht:approx_traffic>/)?.[1] || '';
+    const news = [...block.matchAll(/<ht:news_item>([\s\S]*?)<\/ht:news_item>/gi)]
+      .slice(0, 2)
+      .map(n => {
+        const b = n[1];
+        const nTitle = (b.match(/<ht:news_item_title><!\[CDATA\[(.*?)\]\]>/) || b.match(/<ht:news_item_title>(.*?)<\/ht:news_item_title>/))?.[1] || '';
+        const nUrl   = (b.match(/<ht:news_item_url><!\[CDATA\[(.*?)\]\]>/) || b.match(/<ht:news_item_url>(.*?)<\/ht:news_item_url>/))?.[1] || '';
+        return { title: nTitle, url: nUrl };
+      });
+    return { keyword: title, traffic, articles: news, relatedQueries: [] };
+  }).filter(t => t.keyword);
+}
+
 app.get('/api/google-trends', async (req, res) => {
+  const geo = req.query.geo || 'US';
+
+  // Primary: RSS feed (no auth, more reliable)
   try {
-    const geo = req.query.geo || 'US';
+    const rssResult = await httpsGet(
+      `https://trends.google.com/trending/rss?geo=${geo}`,
+      { Accept: 'application/rss+xml, text/xml, */*' },
+    );
+    if (rssResult.status === 200 && typeof rssResult.body === 'string') {
+      const trends = parseGoogleTrendsRSS(rssResult.body).slice(0, 30);
+      if (trends.length > 0) return res.json({ source: 'google_trends', geo, trends });
+    }
+  } catch { /* fall through */ }
+
+  // Fallback: unofficial JSON API
+  try {
     const url = `https://trends.google.com/trends/api/dailytrends?hl=en-US&tz=-300&geo=${geo}&ns=15`;
     const result = await httpsGet(url);
 
@@ -111,7 +150,7 @@ app.get('/api/google-trends', async (req, res) => {
 
     let parsed;
     try { parsed = JSON.parse(raw); }
-    catch { return res.status(502).json({ error: 'Could not parse Google Trends response' }); }
+    catch { return res.status(502).json({ error: 'Could not reach Google Trends — try again later' }); }
 
     const days     = parsed?.default?.trendingSearchesDays || [];
     const searches = days.flatMap(d => d.trendingSearches || []);
@@ -119,9 +158,9 @@ app.get('/api/google-trends', async (req, res) => {
     const trends = searches
       .slice(0, 30)
       .map(s => ({
-        keyword:   s.title?.query || '',
-        traffic:   s.formattedTraffic || '',
-        articles:  (s.articles || []).slice(0, 2).map(a => ({ title: a.title, url: a.url })),
+        keyword:        s.title?.query || '',
+        traffic:        s.formattedTraffic || '',
+        articles:       (s.articles || []).slice(0, 2).map(a => ({ title: a.title, url: a.url })),
         relatedQueries: (s.relatedQueries || []).map(q => q.query),
       }))
       .filter(t => t.keyword);
@@ -314,6 +353,12 @@ app.get('/api/image-search', async (req, res) => {
   res.json({ url: null, source: 'none' });
 });
 
+// ─── Shopify helpers ──────────────────────────────────────────────────────────
+
+function isValidShopifyDomain(shop) {
+  return typeof shop === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$/.test(shop);
+}
+
 // ─── Shopify launch ───────────────────────────────────────────────────────────
 
 app.post('/api/shopify/launch', async (req, res) => {
@@ -322,6 +367,10 @@ app.post('/api/shopify/launch', async (req, res) => {
 
   if (!shopDomain || !accessToken) {
     return res.status(503).json({ error: 'Shopify not configured. Set Shop Domain and Admin Access Token in Settings.' });
+  }
+  const cleanDomain = shopDomain.replace(/^https?:\/\//, '');
+  if (!isValidShopifyDomain(cleanDomain)) {
+    return res.status(400).json({ error: 'Invalid Shopify shop domain — must end with .myshopify.com' });
   }
 
   const { title, descriptionHtml, tags, productType, vendor, price, sourceUrl } = req.body || {};
@@ -354,7 +403,7 @@ app.post('/api/shopify/launch', async (req, res) => {
   };
 
   try {
-    const url = `https://${shopDomain.replace(/^https?:\/\//, '')}/admin/api/2024-10/graphql.json`;
+    const url = `https://${cleanDomain}/admin/api/2024-10/graphql.json`;
     const result = await httpsRequest('POST', url, {
       'X-Shopify-Access-Token': accessToken,
     }, { query: mutation, variables });
@@ -374,7 +423,7 @@ app.post('/api/shopify/launch', async (req, res) => {
 
     const gid    = product.id || '';
     const numeric = gid.split('/').pop();
-    const adminUrl = `https://${shopDomain.replace(/^https?:\/\//, '')}/admin/products/${numeric}`;
+    const adminUrl = `https://${cleanDomain}/admin/products/${numeric}`;
 
     res.json({
       ok:         true,
@@ -392,9 +441,13 @@ app.get('/api/shopify/health', async (req, res) => {
   const shopDomain  = req.get('x-shopify-shop')  || process.env.SHOPIFY_SHOP_DOMAIN;
   const accessToken = req.get('x-shopify-token') || process.env.SHOPIFY_ADMIN_TOKEN;
   if (!shopDomain || !accessToken) return res.status(503).json({ ok: false, error: 'not configured' });
+  const cleanDomain = shopDomain.replace(/^https?:\/\//, '');
+  if (!isValidShopifyDomain(cleanDomain)) {
+    return res.status(400).json({ ok: false, error: 'Invalid Shopify shop domain — must end with .myshopify.com' });
+  }
 
   try {
-    const url = `https://${shopDomain.replace(/^https?:\/\//, '')}/admin/api/2024-10/graphql.json`;
+    const url = `https://${cleanDomain}/admin/api/2024-10/graphql.json`;
     const result = await httpsRequest('POST', url, {
       'X-Shopify-Access-Token': accessToken,
     }, { query: '{ shop { name myshopifyDomain } }' });
@@ -421,6 +474,265 @@ app.get('/api/reddit-trends', async (req, res) => {
   }
 });
 
+// ─── AI Copy Generation ───────────────────────────────────────────────────────
+
+app.post('/api/ai/generate-copy', async (req, res) => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured' });
+  }
+
+  const { product, competitors, supplier } = req.body || {};
+  if (!product?.name) return res.status(400).json({ error: 'product is required' });
+
+  const model  = process.env.ANTHROPIC_CLAUDE_MODEL || 'claude-opus-4-7';
+  const prompt = buildCopyPrompt(product, competitors, supplier);
+
+  try {
+    const response = await httpsRequest('POST', 'https://api.anthropic.com/v1/messages', {
+      'Content-Type':      'application/json',
+      'x-api-key':         apiKey,
+      'anthropic-version': '2023-06-01',
+    }, { model, max_tokens: 1800, messages: [{ role: 'user', content: prompt }] });
+
+    if (response.status !== 200) {
+      return res.status(502).json({ error: `Claude API error: ${response.status}` });
+    }
+
+    const text = response.body?.content?.[0]?.text ?? '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return res.status(502).json({ error: 'Claude did not return valid JSON copy' });
+
+    let raw;
+    try { raw = JSON.parse(jsonMatch[0]); }
+    catch { return res.status(502).json({ error: 'Failed to parse Claude response as JSON' }); }
+
+    const copy = {
+      title:           String(raw.title           || '').trim(),
+      description:     String(raw.description     || '').trim(),
+      benefits:        Array.isArray(raw.benefits)  ? raw.benefits.map(String)  : [],
+      tags:            Array.isArray(raw.tags)       ? raw.tags.map(String)      : [],
+      metaTitle:       String(raw.metaTitle        || '').trim().slice(0, 60),
+      metaDescription: String(raw.metaDescription  || '').trim().slice(0, 160),
+      variantCopy:     raw.variantCopy ? String(raw.variantCopy).trim() : undefined,
+    };
+
+    if (!copy.title || !copy.description) {
+      return res.status(502).json({ error: 'Incomplete copy returned — please retry' });
+    }
+
+    res.json({ ok: true, copy });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+function buildCopyPrompt(product, competitors, supplier) {
+  const competitorSection = Array.isArray(competitors) && competitors.length
+    ? `\nCompetitor listings found online:\n${competitors.slice(0, 4).map(c =>
+        `  - ${c.store}: "${c.title}" at ${c.price ? `$${c.price}` : 'unknown price'}`
+      ).join('\n')}\nDifferentiate the copy from these competitors.`
+    : '';
+  const supplierSection = supplier
+    ? `\nVerified supplier: ${supplier.source === 'cjdropshipping' ? 'CJDropshipping' : 'AliExpress'}, cost $${Number(supplier.cost).toFixed(2)}, shipping ~$${Number(supplier.shipping).toFixed(2)}`
+    : '';
+  return `You are an expert Shopify product copywriter specialising in trending consumer products and dropshipping.
+
+PRODUCT DATA
+  Name: ${product.name}
+  Category: ${product.category}
+  Viral Score: ${Math.round(product.viralScore?.total ?? 0)}/100
+  Market Saturation: ${product.saturation?.total ?? 0}/100 (lower = more opportunity)
+  Trend Sources: ${(product.sources || []).map(s => s.label).join(', ')}
+  Tags: ${(product.tags || []).join(', ')}
+  First seen trending: ${product.firstSeen || 'recently'}${supplierSection}${competitorSection}
+
+TASK
+Generate compelling, conversion-optimised Shopify product listing copy.
+Return ONLY valid JSON — no markdown, no explanation, no code fence.
+
+SCHEMA
+{
+  "title": "Product title (60-80 chars, front-load the keyword, no brand placeholder)",
+  "description": "<p>2-3 HTML paragraphs covering what makes this trending, who it's for, and key benefits.</p>",
+  "benefits": ["Benefit 1 (customer outcome)", "Benefit 2", "Benefit 3", "Benefit 4", "Benefit 5"],
+  "tags": ["tag1", "tag2", "tag3", "tag4", "tag5", "tag6"],
+  "metaTitle": "SEO meta title 50-60 chars with primary keyword",
+  "metaDescription": "SEO meta description 145-160 chars with a soft call-to-action",
+  "variantCopy": "Short description for variant selectors — omit if not applicable"
+}`;
+}
+
+// ─── Supplier Search ──────────────────────────────────────────────────────────
+
+let _cjToken       = null;
+let _cjTokenExpiry = 0;
+
+async function getCJToken() {
+  if (_cjToken && Date.now() < _cjTokenExpiry) return _cjToken;
+  const email    = process.env.CJDROPSHIPPING_EMAIL;
+  const password = process.env.CJDROPSHIPPING_PASSWORD;
+  if (!email || !password) return null;
+  try {
+    const res = await httpsRequest('POST', 'https://developers.cjdropshipping.com/api2.0/v1/authentication/getAccessToken',
+      { 'Content-Type': 'application/json' }, { email, password });
+    if (res.body?.code === 200 && res.body?.data?.accessToken) {
+      _cjToken       = res.body.data.accessToken;
+      _cjTokenExpiry = Date.now() + 23 * 60 * 60 * 1000;
+      return _cjToken;
+    }
+  } catch { /* fall through */ }
+  return null;
+}
+
+async function searchCJDropshipping(query) {
+  const token = await getCJToken();
+  if (!token) return [];
+  try {
+    const res = await httpsRequest('POST', 'https://developers.cjdropshipping.com/api2.0/v1/product/list',
+      { 'Content-Type': 'application/json', 'CJ-Access-Token': token },
+      { productName: query, pageNum: 1, pageSize: 5 });
+    if (res.body?.code !== 200) return [];
+    return (res.body?.data?.list || []).map((p, i) => ({
+      id:         `cj-${p.pid || i}`,
+      source:     'cjdropshipping',
+      title:      p.productName || query,
+      cost:       parseFloat(p.sellPrice || p.variants?.[0]?.variantSellPrice || '0'),
+      shipping:   parseFloat(p.shippingTime || '0') > 0 ? 4.99 : 2.99,
+      moq:        parseInt(p.productUnit || '1', 10),
+      rating:     parseFloat(p.productRating || '4.5'),
+      orderCount: parseInt(p.productSalesNum || '0', 10),
+      imageUrl:   p.productImage || null,
+      url:        `https://cjdropshipping.com/product/${p.pid}.html`,
+    }));
+  } catch { return []; }
+}
+
+async function searchAliExpress(query) {
+  const appKey    = process.env.ALIEXPRESS_APP_KEY;
+  const appSecret = process.env.ALIEXPRESS_APP_SECRET;
+  if (!appKey || !appSecret) return [];
+  const crypto = require('crypto');
+  const params = {
+    app_key: appKey, method: 'aliexpress.affiliate.product.query',
+    timestamp: new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14),
+    format: 'json', v: '2.0', keywords: query,
+    page_no: '1', page_size: '5', target_currency: 'USD', target_language: 'EN',
+  };
+  const sorted = Object.keys(params).sort().map(k => `${k}${params[k]}`).join('');
+  params.sign  = crypto.createHmac('sha256', appSecret).update(appSecret + sorted + appSecret).digest('hex').toUpperCase();
+  try {
+    const res  = await httpsGet(`https://api.taobao.com/router/rest?${new URLSearchParams(params)}`);
+    const products = res.body?.aliexpress_affiliate_product_query_response?.resp_result?.result?.products?.product || [];
+    return products.map((p, i) => ({
+      id:         `ae-${p.product_id || i}`,
+      source:     'aliexpress',
+      title:      p.product_title || query,
+      cost:       parseFloat(p.target_sale_price || p.target_original_price || '0'),
+      shipping:   3.99,
+      moq:        1,
+      rating:     parseFloat(p.evaluate_rate?.replace('%', '') || '85') / 20,
+      orderCount: parseInt(p.lastest_volume || '0', 10),
+      imageUrl:   p.product_main_image_url || null,
+      url:        p.promotion_link || `https://www.aliexpress.com/item/${p.product_id}.html`,
+    }));
+  } catch { return []; }
+}
+
+app.get('/api/suppliers/search', async (req, res) => {
+  const q        = (req.query.q || '').trim();
+  const category = (req.query.category || '').trim();
+  if (!q) return res.status(400).json({ error: 'q is required' });
+
+  const hasCJ = !!(process.env.CJDROPSHIPPING_EMAIL && process.env.CJDROPSHIPPING_PASSWORD);
+  const hasAE = !!(process.env.ALIEXPRESS_APP_KEY  && process.env.ALIEXPRESS_APP_SECRET);
+
+  if (!hasCJ && !hasAE) return res.json({ suppliers: [], unconfigured: true });
+
+  try {
+    const searchQuery = category ? `${q} ${category}` : q;
+    const [cj, ae] = await Promise.allSettled([
+      hasCJ ? searchCJDropshipping(searchQuery) : Promise.resolve([]),
+      hasAE ? searchAliExpress(searchQuery)     : Promise.resolve([]),
+    ]);
+    const suppliers = [
+      ...(cj.status === 'fulfilled' ? cj.value : []),
+      ...(ae.status === 'fulfilled' ? ae.value : []),
+    ].filter(s => s.cost > 0).sort((a, b) => b.orderCount - a.orderCount).slice(0, 6);
+    res.json({ suppliers });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Competitor Search (Google Shopping) ─────────────────────────────────────
+
+app.get('/api/competitors/search', async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (!q) return res.status(400).json({ error: 'q is required' });
+
+  try {
+    const url    = `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(q)}&hl=en&gl=US&num=10`;
+    const result = await httpsGet(url, {
+      'Accept':          'text/html,application/xhtml+xml',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Accept-Encoding': 'identity',
+    });
+
+    if (result.status !== 200 || typeof result.body !== 'string') {
+      return res.json({ competitors: [], rateLimit: result.status === 429 || result.status === 503 });
+    }
+
+    const competitors = parseGoogleShoppingHTML(result.body, q);
+    res.json({ competitors });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+function parseGoogleShoppingHTML(html, fallbackQuery) {
+  const results = [];
+  const jsonLdMatches = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi)];
+  for (const match of jsonLdMatches) {
+    try {
+      const schema = JSON.parse(match[1]);
+      const items  = Array.isArray(schema) ? schema : schema['@graph'] ? schema['@graph'] : [schema];
+      for (const item of items) {
+        if (item['@type'] === 'Product' && item.name) {
+          const offer = item.offers?.offers?.[0] || item.offers;
+          results.push({
+            store:    item.brand?.name || extractShopDomain(item.url || ''),
+            title:    item.name,
+            price:    offer?.price ? parseFloat(offer.price) : null,
+            currency: offer?.priceCurrency || 'USD',
+            url:      item.url || '',
+            imageUrl: item.image?.url || item.image || null,
+            source:   'google_shopping',
+          });
+        }
+      }
+    } catch { /* skip malformed */ }
+  }
+
+  if (results.length === 0) {
+    const titleMatches = [...html.matchAll(/aria-label="([^"]{10,120})"/g)].map(m => m[1]);
+    const priceMatches = [...html.matchAll(/\$\s*(\d+(?:\.\d{2})?)/g)].map(m => parseFloat(m[1]));
+    const keyword      = fallbackQuery.split(' ')[0].toLowerCase();
+    titleMatches.slice(0, 8).forEach((title, i) => {
+      if (title.toLowerCase().includes(keyword)) {
+        results.push({ store: 'Unknown', title, price: priceMatches[i] ?? null, currency: 'USD', url: '', imageUrl: null, source: 'google_shopping' });
+      }
+    });
+  }
+
+  return results.slice(0, 8);
+}
+
+function extractShopDomain(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); }
+  catch { return 'Unknown Store'; }
+}
+
 // ─── Static frontend ──────────────────────────────────────────────────────────
 // Serve the Vite build output when it exists (Railway production).
 // In local dev the Vite dev server runs separately on :5173.
@@ -439,12 +751,17 @@ if (fs.existsSync(DIST)) {
 
 app.listen(PORT, () => {
   const active = [
-    process.env.PINTEREST_ACCESS_TOKEN && 'Pinterest',
-    'Google Trends',
+    'Google Trends (RSS)',
     'Amazon Movers',
     'Reddit (proxy)',
-    process.env.APIFY_API_TOKEN && 'TikTok (Apify)',
+    process.env.PINTEREST_ACCESS_TOKEN && 'Pinterest',
+    process.env.APIFY_API_TOKEN        && 'TikTok (Apify)',
+    process.env.ANTHROPIC_API_KEY      && 'AI Copy (Claude)',
+    process.env.CJDROPSHIPPING_EMAIL   && 'CJDropshipping',
+    process.env.ALIEXPRESS_APP_KEY     && 'AliExpress',
+    'Google Shopping (competitor scrape)',
+    'Shopify (Admin API)',
   ].filter(Boolean);
   console.log(`TRENDZ backend listening on http://localhost:${PORT}`);
-  console.log(`Active sources: ${active.join(', ')}`);
+  console.log(`Active: ${active.join(', ')}`);
 });

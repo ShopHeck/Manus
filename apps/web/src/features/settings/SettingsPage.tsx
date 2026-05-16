@@ -134,6 +134,14 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        <section className={styles.section} id="google-trends">
+          <h2 className={styles.sectionTitle}>Google Trends</h2>
+          <p className={styles.sectionDesc}>
+            Google Trends data is fetched automatically from the public RSS feed — no API key required.
+            Make sure the Backend URL above is set and reachable.
+          </p>
+        </section>
+
         <section className={styles.section} id="tiktok">
           <h2 className={styles.sectionTitle}>TikTok via Apify</h2>
           <p className={styles.sectionDesc}>
