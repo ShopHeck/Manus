@@ -33,6 +33,20 @@ export const useCopyStore = create<CopyStore>()(
   ),
 );
 
+// ── Normalise ─────────────────────────────────────────────────────────────────
+// Guard against partial / stale objects in the persisted store or from the API.
+function normaliseCopy(raw: Partial<ProductCopy>): ProductCopy {
+  return {
+    title:           String(raw.title           ?? ''),
+    description:     String(raw.description     ?? ''),
+    benefits:        Array.isArray(raw.benefits)  ? raw.benefits.map(String)  : [],
+    tags:            Array.isArray(raw.tags)       ? raw.tags.map(String)      : [],
+    metaTitle:       String(raw.metaTitle        ?? ''),
+    metaDescription: String(raw.metaDescription  ?? ''),
+    variantCopy:     raw.variantCopy ? String(raw.variantCopy) : undefined,
+  };
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface CopyGeneratorProps {
@@ -45,7 +59,7 @@ export function CopyGenerator({ product, competitors, supplier }: CopyGeneratorP
   const savedCopy = useCopyStore(s => s.byProductId[product.id]);
   const save      = useCopyStore(s => s.save);
 
-  const [copy, setCopy]       = useState<ProductCopy | null>(savedCopy ?? null);
+  const [copy, setCopy]       = useState<ProductCopy | null>(savedCopy ? normaliseCopy(savedCopy) : null);
   const [busy, setBusy]       = useState(false);
   const [error, setError]     = useState<string | null>(null);
   const [copied, setCopied]   = useState<string | null>(null);
@@ -70,7 +84,7 @@ export function CopyGenerator({ product, competitors, supplier }: CopyGeneratorP
       const json = await res.json() as { ok?: boolean; copy?: ProductCopy; error?: string };
       if (!res.ok || !json.ok) throw new Error(json.error || `HTTP ${res.status}`);
 
-      const generated = json.copy!;
+      const generated = normaliseCopy(json.copy!);
       setCopy(generated);
       save(product.id, generated);
       toast('Copy generated', 'Review and edit before launching.', 'success');

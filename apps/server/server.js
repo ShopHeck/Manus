@@ -237,6 +237,12 @@ app.get('/api/image-search', async (req, res) => {
   res.json({ url: null, source: 'none' });
 });
 
+// ─── Shopify domain validation ────────────────────────────────────────────────
+// Prevents SSRF: only *.myshopify.com domains may be used as fetch targets.
+function isValidShopifyDomain(shop) {
+  return typeof shop === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$/.test(shop);
+}
+
 // ─── Shopify: Health ──────────────────────────────────────────────────────────
 
 app.get('/api/shopify/health', async (req, res) => {
@@ -244,6 +250,9 @@ app.get('/api/shopify/health', async (req, res) => {
   const token = req.headers['x-shopify-token'];
   if (!shop || !token) {
     return res.status(400).json({ ok: false, error: 'x-shopify-shop and x-shopify-token headers required' });
+  }
+  if (!isValidShopifyDomain(shop)) {
+    return res.status(400).json({ ok: false, error: 'Invalid Shopify shop domain — must end with .myshopify.com' });
   }
 
   try {
@@ -267,6 +276,9 @@ app.post('/api/shopify/launch', async (req, res) => {
   const token = req.headers['x-shopify-token'];
   if (!shop || !token) {
     return res.status(400).json({ ok: false, error: 'x-shopify-shop and x-shopify-token headers required' });
+  }
+  if (!isValidShopifyDomain(shop)) {
+    return res.status(400).json({ ok: false, error: 'Invalid Shopify shop domain — must end with .myshopify.com' });
   }
 
   const { title, descriptionHtml, tags, productType, vendor, price, sourceUrl, metaTitle, metaDescription } = req.body;
@@ -398,11 +410,22 @@ app.post('/api/ai/generate-copy', async (req, res) => {
       return res.status(502).json({ error: 'Claude did not return valid JSON copy' });
     }
 
-    let copy;
-    try { copy = JSON.parse(jsonMatch[0]); }
+    let raw;
+    try { raw = JSON.parse(jsonMatch[0]); }
     catch { return res.status(502).json({ error: 'Failed to parse Claude response as JSON' }); }
 
-    // Validate required fields
+    // Normalise the full schema so the client never receives partial / typed-incorrectly data.
+    // Arrays default to [] and strings default to '' rather than crashing the UI's .map() calls.
+    const copy = {
+      title:           String(raw.title           || '').trim(),
+      description:     String(raw.description     || '').trim(),
+      benefits:        Array.isArray(raw.benefits)  ? raw.benefits.map(String)  : [],
+      tags:            Array.isArray(raw.tags)       ? raw.tags.map(String)      : [],
+      metaTitle:       String(raw.metaTitle        || '').trim().slice(0, 60),
+      metaDescription: String(raw.metaDescription  || '').trim().slice(0, 160),
+      variantCopy:     raw.variantCopy ? String(raw.variantCopy).trim() : undefined,
+    };
+
     if (!copy.title || !copy.description) {
       return res.status(502).json({ error: 'Incomplete copy returned — please retry' });
     }

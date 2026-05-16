@@ -145,7 +145,7 @@ function CompetitorCard({ competitor: c }: { competitor: CompetitorProduct }) {
         <p className={styles.title}>{c.title}</p>
         {c.price !== null && (
           <span className={styles.price}>
-            {c.currency}{c.price.toFixed(2)}
+            {new Intl.NumberFormat('en-US', { style: 'currency', currency: c.currency || 'USD' }).format(c.price)}
           </span>
         )}
       </div>
