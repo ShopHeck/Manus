@@ -265,3 +265,26 @@
 @keyframes drawerSpin { to { transform: rotate(360deg); } }
 
 .launchedLink { text-decoration: none; display: inline-flex; }
+
+/* Velocity detail row */
+.velocityDetail {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.velocityConf {
+  font-size: var(--text-caption);
+  color: var(--text-4);
+}
+
+/* Supplier-prefilled indicator */
+.prefillTag {
+  font-size: var(--text-caption);
+  color: var(--success);
+  font-weight: var(--weight-normal);
+}
+
+.marginInputPrefilled {
+  border-color: rgba(16, 185, 129, 0.4) !important;
+}

@@ -211,3 +211,5 @@
 .rankFlat { color: var(--text-4);  }
 
 .watchedBtn { color: var(--warning); }
+
+.velocityRow { margin-top: var(--space-1); }

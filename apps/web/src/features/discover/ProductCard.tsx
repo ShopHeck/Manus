@@ -4,8 +4,11 @@ import type { TrendProduct } from '@/types';
 import { Badge } from '@/components/Badge';
 import { Score } from '@/components/Score';
 import { Sparkline } from '@/components/Sparkline';
+import { VelocityBadge } from '@/components/VelocityBadge';
 import { Button } from '@/components/Button';
 import { useWatchlistStore } from '@/features/watchlist/store';
+import { useSnapshotStore } from '@/lib/snapshots';
+import { computeVelocity } from '@/lib/velocity';
 import { toast } from '@/components/Toast';
 import styles from './ProductCard.module.css';
 
@@ -16,8 +19,10 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onClick }: ProductCardProps) {
   const { isWatched, add, remove } = useWatchlistStore();
-  const watched = isWatched(product.id);
+  const watched    = isWatched(product.id);
   const [imgError, setImgError] = useState(false);
+  const snapshots  = useSnapshotStore(s => s.history(product.id));
+  const velocity   = computeVelocity(snapshots);
 
   function handleWatch(e: React.MouseEvent) {
     e.stopPropagation();
@@ -75,6 +80,13 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
           <h3 className={styles.name}>{product.name}</h3>
           <Sparkline productId={product.id} metric="viral" width={56} height={18} />
         </div>
+
+        {/* Velocity badge — only show meaningful states */}
+        {velocity.state !== 'not-enough-data' && (
+          <div className={styles.velocityRow}>
+            <VelocityBadge result={velocity} size="sm" showDelta />
+          </div>
+        )}
 
         {/* Source badges */}
         <div className={styles.sourceBadges}>

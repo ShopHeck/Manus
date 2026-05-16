@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { TrendProduct } from '@/types';
+import type { TrendProduct, ProductCopy, MarginInputs } from '@/types';
 import { storage } from './storage';
 
 export interface LaunchedRecord {
@@ -8,6 +8,7 @@ export interface LaunchedRecord {
   shopifyGid: string;
   adminUrl:   string;
   launchedAt: number;
+  copy?:      ProductCopy;
 }
 
 interface LaunchStore {
@@ -36,7 +37,11 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
 
-export async function launchToShopify(product: TrendProduct): Promise<LaunchedRecord> {
+export async function launchToShopify(
+  product: TrendProduct,
+  marginInputs?: MarginInputs,
+  copy?: ProductCopy,
+): Promise<LaunchedRecord> {
   const backendUrl = storage.get('backendUrl', '');
   const shop       = storage.get('shopifyShop', '');
   const token      = storage.get('shopifyToken', '');
@@ -44,7 +49,11 @@ export async function launchToShopify(product: TrendProduct): Promise<LaunchedRe
   if (!backendUrl) throw new Error('Backend URL not set in Settings.');
   if (!shop || !token) throw new Error('Shopify shop and token must be set in Settings.');
 
-  const sourceUrl = Object.values(product.urls).find(Boolean);
+  const sourceUrl      = Object.values(product.urls).find(Boolean);
+  const retailPrice    = marginInputs?.retailPrice ?? product.margin?.retailPrice ?? 29.99;
+  const title          = copy?.title          ?? product.name;
+  const descriptionHtml= copy?.description    ?? descriptionFor(product);
+  const tags           = copy?.tags?.length   ? copy.tags : product.tags;
 
   const res = await fetch(`${backendUrl}/api/shopify/launch`, {
     method:  'POST',
@@ -54,13 +63,15 @@ export async function launchToShopify(product: TrendProduct): Promise<LaunchedRe
       'x-shopify-token': token,
     },
     body: JSON.stringify({
-      title:           product.name,
-      descriptionHtml: descriptionFor(product),
-      tags:            product.tags,
+      title,
+      descriptionHtml,
+      tags,
       productType:     product.category,
       vendor:          'Manus Trends',
-      price:           product.margin?.retailPrice?.toFixed(2) ?? '29.99',
+      price:           retailPrice.toFixed(2),
       sourceUrl,
+      metaTitle:       copy?.metaTitle,
+      metaDescription: copy?.metaDescription,
     }),
   });
 
@@ -73,5 +84,6 @@ export async function launchToShopify(product: TrendProduct): Promise<LaunchedRe
     shopifyGid: json.productId || '',
     adminUrl:   json.adminUrl || '',
     launchedAt: Date.now(),
+    copy,
   };
 }

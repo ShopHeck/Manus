@@ -1,14 +1,19 @@
 import { useState } from 'react';
 import { X, Star, ExternalLink, ShoppingBag, Loader2, Check } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
-import type { TrendProduct } from '@/types';
+import type { TrendProduct, MarginInputs, SupplierCandidate, CompetitorProduct } from '@/types';
 import { Badge } from '@/components/Badge';
 import { Button } from '@/components/Button';
+import { VelocityBadge } from '@/components/VelocityBadge';
 import { useWatchlistStore } from '@/features/watchlist/store';
 import { toast } from '@/components/Toast';
-import { computeMargin } from '@/lib/margin';
-import { defaultMarginInputs } from '@/lib/margin';
+import { computeMargin, defaultMarginInputs } from '@/lib/margin';
+import { useSnapshotStore } from '@/lib/snapshots';
+import { computeVelocity } from '@/lib/velocity';
 import { launchToShopify, useLaunchStore } from '@/lib/shopifyLaunch';
+import { useCopyStore, CopyGenerator } from './CopyGenerator';
+import { SupplierPanel } from './SupplierPanel';
+import { CompetitorPanel } from './CompetitorPanel';
 import styles from './ProductDrawer.module.css';
 
 interface ProductDrawerProps {
@@ -16,7 +21,7 @@ interface ProductDrawerProps {
   onClose: () => void;
 }
 
-type Tab = 'overview' | 'margin';
+type Tab = 'overview' | 'margin' | 'copy' | 'suppliers' | 'competitors';
 
 export function ProductDrawer({ product, onClose }: ProductDrawerProps) {
   const [tab, setTab] = useState<Tab>('overview');
@@ -34,7 +39,16 @@ export function ProductDrawer({ product, onClose }: ProductDrawerProps) {
       <Dialog.Portal>
         <Dialog.Overlay className={styles.overlay} />
         <Dialog.Content className={styles.drawer} aria-label="Product details">
-          {product && <DrawerContent product={product} tab={tab} setTab={setTab} watched={watched} onWatch={handleWatch} onClose={onClose} />}
+          {product && (
+            <DrawerContent
+              product={product}
+              tab={tab}
+              setTab={setTab}
+              watched={watched}
+              onWatch={handleWatch}
+              onClose={onClose}
+            />
+          )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -42,13 +56,39 @@ export function ProductDrawer({ product, onClose }: ProductDrawerProps) {
 }
 
 function DrawerContent({ product, tab, setTab, watched, onWatch, onClose }: {
-  product: TrendProduct;
-  tab: Tab;
-  setTab: (t: Tab) => void;
-  watched: boolean;
-  onWatch: () => void;
-  onClose: () => void;
+  product:  TrendProduct;
+  tab:      Tab;
+  setTab:   (t: Tab) => void;
+  watched:  boolean;
+  onWatch:  () => void;
+  onClose:  () => void;
 }) {
+  // Margin inputs lifted so SupplierPanel can prefill them
+  const [marginInputs, setMarginInputs] = useState<MarginInputs>(
+    product.margin ?? defaultMarginInputs(product.category.toLowerCase(), 39.99),
+  );
+  const [selectedSupplier, setSelectedSupplier] = useState<SupplierCandidate | null>(null);
+  const [competitors, setCompetitors]           = useState<CompetitorProduct[]>([]);
+
+  function handleSelectSupplier(s: SupplierCandidate | null) {
+    setSelectedSupplier(s);
+    if (s) {
+      setMarginInputs(prev => ({ ...prev, cogs: s.cost, shipping: s.shipping }));
+    }
+  }
+
+  const snapshots  = useSnapshotStore(st => st.history(product.id));
+  const velocity   = computeVelocity(snapshots);
+  const savedCopy  = useCopyStore(s => s.byProductId[product.id]);
+
+  const TABS: { id: Tab; label: string }[] = [
+    { id: 'overview',     label: 'Overview' },
+    { id: 'margin',       label: 'Margin' },
+    { id: 'copy',         label: savedCopy ? 'Copy ✓' : 'Copy' },
+    { id: 'suppliers',    label: 'Suppliers' },
+    { id: 'competitors',  label: 'Competitors' },
+  ];
+
   return (
     <div className={styles.inner}>
       {/* Header */}
@@ -58,6 +98,7 @@ function DrawerContent({ product, tab, setTab, watched, onWatch, onClose }: {
           <div className={styles.sourceBadges}>
             {product.sources.map(s => <Badge key={s.id} variant={s.id} size="sm">{s.label}</Badge>)}
           </div>
+          <VelocityBadge result={velocity} size="sm" />
         </div>
         <div className={styles.headerActions}>
           <Button variant="ghost" size="icon" onClick={onWatch} title={watched ? 'Unwatch' : 'Watch'} className={watched ? styles.watchedBtn : ''}>
@@ -71,28 +112,64 @@ function DrawerContent({ product, tab, setTab, watched, onWatch, onClose }: {
 
       <h2 className={styles.name}>{product.name}</h2>
 
+      {/* Velocity detail */}
+      {velocity.state !== 'not-enough-data' && (
+        <div className={styles.velocityDetail}>
+          <VelocityBadge result={velocity} size="md" showDelta />
+          <span className={styles.velocityConf}>
+            {velocity.confidence === 'high' ? 'high confidence' : 'low confidence — more data needed'}
+          </span>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className={styles.tabs}>
-        {(['overview', 'margin'] as Tab[]).map(t => (
+        {TABS.map(t => (
           <button
-            key={t}
-            className={`${styles.tab} ${tab === t ? styles.tabActive : ''}`}
-            onClick={() => setTab(t)}
+            key={t.id}
+            className={`${styles.tab} ${tab === t.id ? styles.tabActive : ''}`}
+            onClick={() => setTab(t.id)}
           >
-            {t.charAt(0).toUpperCase() + t.slice(1)}
+            {t.label}
           </button>
         ))}
       </div>
 
       {/* Tab content */}
       <div className={styles.body}>
-        {tab === 'overview' && <OverviewTab product={product} />}
-        {tab === 'margin'   && <MarginTab   product={product} />}
+        {tab === 'overview'    && <OverviewTab product={product} />}
+        {tab === 'margin'      && (
+          <MarginTab
+            inputs={marginInputs}
+            onChange={setMarginInputs}
+            selectedSupplier={selectedSupplier}
+          />
+        )}
+        {tab === 'copy'        && (
+          <CopyGenerator
+            product={product}
+            competitors={competitors}
+            supplier={selectedSupplier}
+          />
+        )}
+        {tab === 'suppliers'   && (
+          <SupplierPanel
+            product={product}
+            onSelectSupplier={handleSelectSupplier}
+            selectedSupplier={selectedSupplier}
+          />
+        )}
+        {tab === 'competitors' && (
+          <CompetitorPanel
+            product={product}
+            onCompetitorsLoaded={setCompetitors}
+          />
+        )}
       </div>
 
       {/* Footer CTA */}
       <div className={styles.footer}>
-        <LaunchButton product={product} />
+        <LaunchButton product={product} marginInputs={marginInputs} />
         <Button variant="outline" size="md" onClick={onWatch}>
           <Star size={14} fill={watched ? 'currentColor' : 'none'} />
           {watched ? 'Watching' : 'Watch'}
@@ -109,9 +186,10 @@ function DrawerContent({ product, tab, setTab, watched, onWatch, onClose }: {
   );
 }
 
-function LaunchButton({ product }: { product: TrendProduct }) {
+function LaunchButton({ product, marginInputs }: { product: TrendProduct; marginInputs: MarginInputs }) {
   const launch = useLaunchStore(s => s.byProductId[product.id]);
   const record = useLaunchStore(s => s.record);
+  const copy   = useCopyStore(s => s.byProductId[product.id]);
   const [busy, setBusy] = useState(false);
 
   if (launch) {
@@ -127,7 +205,7 @@ function LaunchButton({ product }: { product: TrendProduct }) {
   async function go() {
     setBusy(true);
     try {
-      const r = await launchToShopify(product);
+      const r = await launchToShopify(product, marginInputs, copy ?? undefined);
       record(r);
       toast('Product created in Shopify', 'Saved as draft. Open the admin to publish.', 'success');
     } catch (err) {
@@ -146,7 +224,7 @@ function LaunchButton({ product }: { product: TrendProduct }) {
 }
 
 function OverviewTab({ product }: { product: TrendProduct }) {
-  const vs = product.viralScore;
+  const vs  = product.viralScore;
   const sat = product.saturation;
 
   return (
@@ -207,23 +285,30 @@ function OverviewTab({ product }: { product: TrendProduct }) {
   );
 }
 
-function MarginTab({ product }: { product: TrendProduct }) {
-  const [inputs, setInputs] = useState(product.margin ?? defaultMarginInputs('default', 39.99));
+function MarginTab({ inputs, onChange, selectedSupplier }: {
+  inputs:          MarginInputs;
+  onChange:        (v: MarginInputs) => void;
+  selectedSupplier:SupplierCandidate | null;
+}) {
   const result = computeMargin(inputs);
 
-  function field(key: keyof typeof inputs) {
+  function field(key: keyof MarginInputs) {
+    const isPrefilled = selectedSupplier && (key === 'cogs' || key === 'shipping');
     return (
       <label className={styles.marginField} key={key}>
-        <span className={styles.marginFieldLabel}>{MARGIN_LABELS[key]}</span>
+        <span className={styles.marginFieldLabel}>
+          {MARGIN_LABELS[key]}
+          {isPrefilled && <span className={styles.prefillTag}> · from supplier</span>}
+        </span>
         <div className={styles.marginInputWrap}>
           <span className={styles.marginPrefix}>$</span>
           <input
             type="number"
             min={0}
             step={0.01}
-            className={styles.marginInput}
+            className={`${styles.marginInput} ${isPrefilled ? styles.marginInputPrefilled : ''}`}
             value={inputs[key]}
-            onChange={e => setInputs(prev => ({ ...prev, [key]: parseFloat(e.target.value) || 0 }))}
+            onChange={e => onChange({ ...inputs, [key]: parseFloat(e.target.value) || 0 })}
           />
         </div>
       </label>
