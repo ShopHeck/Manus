@@ -107,3 +107,60 @@ export interface DiscoverFilters {
   sortBy:        SortBy;
   search:        string;
 }
+
+// ── AI Copy Generator ──────────────────────────────────────────────────────────
+
+export interface ProductCopy {
+  title:           string;
+  description:     string;   // HTML
+  benefits:        string[]; // 3-5 bullet points
+  tags:            string[];
+  metaTitle:       string;
+  metaDescription: string;
+  variantCopy?:    string;   // optional, for products with variants
+}
+
+// ── Supplier Auto-Match ────────────────────────────────────────────────────────
+
+export type SupplierSource = 'cjdropshipping' | 'aliexpress';
+
+export interface SupplierCandidate {
+  id:         string;
+  source:     SupplierSource;
+  title:      string;
+  cost:       number;       // USD per unit
+  shipping:   number;       // USD estimated
+  moq:        number;       // minimum order quantity
+  rating:     number;       // 0-5
+  orderCount: number;
+  imageUrl:   string | null;
+  url:        string;
+}
+
+// ── Trend Velocity ─────────────────────────────────────────────────────────────
+
+export type TrendState =
+  | 'accelerating'
+  | 'decelerating'
+  | 'spike'
+  | 'drop'
+  | 'stable'
+  | 'not-enough-data';
+
+export interface VelocityResult {
+  deltaPerWeek: number;            // Δviral score per 7 days (+ = growing)
+  state:        TrendState;
+  confidence:   'high' | 'low';   // high = 4+ snapshots over a meaningful span
+}
+
+// ── Competitor Intelligence ────────────────────────────────────────────────────
+
+export interface CompetitorProduct {
+  store:    string;
+  title:    string;
+  price:    number | null;
+  currency: string;
+  url:      string;
+  imageUrl: string | null;
+  source:   'google_shopping' | 'amazon' | 'other';
+}
