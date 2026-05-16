@@ -162,15 +162,38 @@ app.get('/api/amazon-movers', async (req, res) => {
     const titleFallback = [...html.matchAll(/aria-label="([^"]{10,80})"/g)].map(m => m[1]);
     const names = nameMatches.length > 0 ? nameMatches : titleFallback.slice(0, 20);
 
-    // Extract Amazon CDN product thumbnail images from the page HTML
-    const imgMatches = [...html.matchAll(/https:\/\/m\.media-amazon\.com\/images\/I\/[A-Za-z0-9\-_+%.]+\._AC_[^"']{1,80}\.(?:jpg|png|webp)/g)].map(m => m[0]);
+    // Map each ASIN to the nearest Amazon CDN image by character position in the HTML.
+    // Using proximity instead of parallel-array indexing avoids misalignment caused by
+    // non-product images (nav icons, ads) or multiple size variants per product.
+    const asinPositions = [...html.matchAll(/\/dp\/([A-Z0-9]{10})/g)]
+      .map(m => ({ pos: m.index, asin: m[1] }));
+
+    const imgIdSeen = new Set();
+    const imgPositions = [...html.matchAll(/https:\/\/m\.media-amazon\.com\/images\/I\/[A-Za-z0-9\-_+%.]+\._AC_[^"']{1,80}\.(?:jpg|png|webp)/g)]
+      .map(m => ({ pos: m.index, url: m[0], id: m[0].match(/\/images\/I\/([^.]+)/)?.[1] }))
+      .filter(({ id }) => {
+        if (!id || imgIdSeen.has(id)) return false;
+        imgIdSeen.add(id);
+        return true;
+      });
+
+    const asinToImage = new Map();
+    for (const { pos, asin } of asinPositions) {
+      if (asinToImage.has(asin)) continue;
+      let closest = null, closestDist = Infinity;
+      for (const img of imgPositions) {
+        const dist = Math.abs(img.pos - pos);
+        if (dist < closestDist) { closestDist = dist; closest = img; }
+      }
+      asinToImage.set(asin, closest?.url ?? null);
+    }
 
     const products = [...new Set(asinMatches)].slice(0, 20).map((asin, i) => ({
       name:     names[i] || `Product ${i + 1}`,
       asin,
       url:      `https://www.amazon.com/dp/${asin}`,
       rank:     i + 1,
-      imageUrl: imgMatches[i] ?? null,
+      imageUrl: asinToImage.get(asin) ?? null,
     }));
 
     res.json({ source: 'amazon_movers', category, products });

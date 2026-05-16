@@ -159,7 +159,7 @@ export function useDiscoverData(filters: DiscoverFilters) {
   const imageResolutionKey = productsWithoutImages.map(p => p.id).join(',');
 
   const { data: resolvedImages } = useQuery<Record<string, string | null>>({
-    queryKey: ['image-resolutions', imageResolutionKey],
+    queryKey: ['image-resolutions', backendUrl, imageResolutionKey],
     queryFn: async () => {
       if (!backendUrl || productsWithoutImages.length === 0) return {};
       const entries = await Promise.all(
